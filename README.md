@@ -28,14 +28,14 @@ This project aims to apply advanced AI development techniques to deliver:
 │   ├── 04_streamlit_app.ipynb
 │   └── 05_deployment.ipynb
 ├── source/
-│   ├── app.py
 │   ├── tools.py
 │   ├── rag_utils.py
-│   ├── config.py
-│   └── requirements.txt
+│   └── config.py
 ├── report/
 │   └── final_report.pdf
 ├── README.md
+├── streamlit_app.py
+├── requirements.txt
 └── .gitignore
 ```
 
