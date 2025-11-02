@@ -20,17 +20,15 @@ This project aims to apply advanced AI development techniques to deliver:
 ├── data/
 │   └── sample_documents/
 ├── images/
-│   └── architecture_diagram.png
+│   └── XX.png
 ├── notebooks/
-│   ├── 01_prompt_engineering.ipynb
-│   ├── 02_function_calling.ipynb
-│   ├── 03_rag_pipeline.ipynb
-│   ├── 04_streamlit_app.ipynb
-│   └── 05_deployment.ipynb
-├── source/
-│   ├── tools.py
-│   ├── rag_utils.py
-│   └── config.py
+│   ├── XX.ipynb
+│   └── XX.ipynb
+├── src/
+│   ├── services/
+│   ├── tools/
+│   ├── utils/
+│   └── ai_client.py
 ├── report/
 │   └── final_report.pdf
 ├── README.md

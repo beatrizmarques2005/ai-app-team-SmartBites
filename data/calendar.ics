@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:ics.py - http://git.io/lLljaA
+BEGIN:VEVENT
+DESCRIPTION:Grilled Chicken Salad scheduled for Tuesday at lunch
+DTSTART:20251104T123026Z
+SUMMARY:Lunch – Grilled Chicken Salad
+UID:2720a584-a1d9-4bea-8dfe-bbf46ad046dd@2720.org
+END:VEVENT
+BEGIN:VEVENT
+DESCRIPTION:Vegetable Stir Fry scheduled for Wednesday at dinner
+DTSTART:20251105T190026Z
+SUMMARY:Dinner – Vegetable Stir Fry
+UID:f06b6f82-48b1-47e9-9b82-c7ccf30b865f@f06b.org
+END:VEVENT
+BEGIN:VEVENT
+DESCRIPTION:Pasta Carbonara scheduled for Friday at dinner
+DTSTART:20251107T190026Z
+SUMMARY:Dinner – Pasta Carbonara
+UID:ca45eacd-540e-4133-ab38-7f0ee8245b9e@ca45.org
+END:VEVENT
+BEGIN:VEVENT
+DESCRIPTION:Avocado Toast scheduled for Monday at breakfast
+DTSTART:20251103T080026Z
+SUMMARY:Breakfast – Avocado Toast
+UID:0ad3209d-0ec6-4775-b6c7-fe8b7e76fd97@0ad3.org
+END:VEVENT
+END:VCALENDAR
