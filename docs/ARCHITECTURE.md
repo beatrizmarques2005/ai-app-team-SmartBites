@@ -1,3 +1,6 @@
+
+---
+
 This doc should explain:
 - Architecture decisions and technical choices
 - Component-level documentation recommended for complex modules
@@ -18,6 +21,9 @@ This doc should explain:
 – Does your project benefit from multimodal processing?
 – Do you need RAG/vector database (e.g., semantic search for similarity matching)?
 
+ver o resto guidelines
+
+---
 
 # Team Project Architecture Plan
 
