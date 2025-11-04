@@ -1,3 +1,24 @@
+This doc should explain:
+- Architecture decisions and technical choices
+- Component-level documentation recommended for complex modules
+- Complete setup and deployment instructions
+
+2. Define Your Application Concept
+• What problem does your application solve?
+• Who are your users?
+• What’s the core value proposition?
+• How will users interact with it?
+
+3. Plan Your Architecture
+• Review clean architecture materials from class
+• Design your layered structure (UI, Service, AI, Tools)
+• Identify which AI capabilities you need:
+– What tools/functions will extend the LLM?
+– What documents need to be processed?
+– Does your project benefit from multimodal processing?
+– Do you need RAG/vector database (e.g., semantic search for similarity matching)?
+
+
 # Team Project Architecture Plan
 
 **Team Name:** *SmartBites*  

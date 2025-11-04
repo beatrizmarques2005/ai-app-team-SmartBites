@@ -180,5 +180,7 @@ The app will be deployed on **Streamlit Cloud**.
 - Include deployment instructions in the final report and repository  
 - Use Streamlit’s sharing and access controls to manage visibility
 
+This is the [deployment URL]().
+
 ---
 
