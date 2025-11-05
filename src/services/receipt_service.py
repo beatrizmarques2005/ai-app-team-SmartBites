@@ -82,16 +82,19 @@ If information is not present, say so."""
             "store_name": "string or null",
             "purchase_date": "YYYY-MM-DD or null",
             "purchase_time": "HH:MM or null",
+            "invoice_number": "string or null",
             "items": [
                 {
                     "name": "string",
+                    "section": "string or null",
                     "quantity": "number or null",
                     "unit_price": "number or null",
                     "total_price": "number or null"
                 }
             ],
             "subtotal": "number or null",
-            "tax": "number or null",
+            "discounts": "number or null",
             "total": "number or null",
+            "loyalty_card": "string or null",
             "payment_method": "string or null"
         }

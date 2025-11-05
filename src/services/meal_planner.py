@@ -1,4 +1,3 @@
-
 """
 Meal Planner Service
 ----------------------
@@ -14,10 +13,8 @@ def generate_meal_plan(ingredients: list, preferences: dict) -> list:
         {"day": "Wednesday", "meal": "Pasta Primavera"},
     ]
 
-
 def schedule_meals(meal_plan: list) -> dict:
     pass
 
-    
 def match_ingredients_to_recipes(ingredients: list) -> list:
     pass

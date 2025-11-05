@@ -6,17 +6,10 @@ Calendar Synchronization Tool
 Purpose: Sync meal plan to calendar.
 
 """
-# ----------------------------
-# IMPORTS
-# ----------------------------
 
 from datetime import datetime, timedelta
 from ics import Calendar, Event
 from pathlib import Path
-
-# ----------------------------
-# CALENDAR SYNC FUNCTIONS
-# ----------------------------
 
 # Define default time slots
 time_slots = {

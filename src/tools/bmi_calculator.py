@@ -5,15 +5,8 @@ BMI Calculator Tool
 Purpose: Calculate BMI.
 
 """
-# ----------------------------------------------
-# IMPORTS
-# ----------------------------------------------
 
 import math
-
-# ----------------------------------------------
-# FUNCTIONS
-# ----------------------------------------------
 
 def calculate_bmi(height_cm: float, weight_kg: float, round_digits: int = 2) -> tuple:
     """

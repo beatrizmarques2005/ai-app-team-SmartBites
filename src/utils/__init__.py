@@ -1,5 +1,3 @@
-# template
-
 """
 Utils package - Shared utilities
 
