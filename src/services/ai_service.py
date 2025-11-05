@@ -1,5 +1,3 @@
-# just a template
-
 """
 AI Service - Handles all Gemini API interactions
 
@@ -16,6 +14,7 @@ from langfuse import observe
 import os
 import json
 import tempfile
+import re
 
 
 class AIService:
@@ -56,11 +55,16 @@ class AIService:
         if not response.text or response.text.strip() == "":
             raise ValueError("Gemini returned an empty response. The file may be unclear or the schema too strict.")
 
-        try:
-            return json.loads(response.text)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Gemini returned invalid JSON: {response.text}") from e
+        raw_text = response.text.strip()
 
+        # Remove Markdown-style code block if present
+        if raw_text.startswith("```json") or raw_text.startswith("```"):
+            raw_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw_text, flags=re.DOTALL).strip()
+
+        try:
+            return json.loads(raw_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Gemini returned invalid JSON: {raw_text}") from e
 
     @observe()
     def chat_with_context(
@@ -69,29 +73,20 @@ class AIService:
         context: dict,
         system_instruction: str = None
     ) -> str:
-        """Chat with AI about specific context.
-
-        Args:
-            question: User's question
-            context: Context data to reference
-            system_instruction: Optional system instruction
-
-        Returns:
-            AI's answer as string
-        """
+        """Chat with AI about specific context."""
         if system_instruction is None:
             system_instruction = "You are a helpful AI assistant analyzing data."
 
-        chat = self.model.start_chat(
-            model=self.model,
-            config={
-                'system_instruction': f"""{system_instruction}
+        # Start the chat
+        chat = self.model.start_chat()
 
-Context data:
-{json.dumps(context, indent=2)}"""
-            }
-        )
+        # Send system instruction and context as the first message
+        chat.send_message(f"""{system_instruction}
 
+                            Context data:
+                            {json.dumps(context, indent=2)}""")
+
+        # Send the user's question
         response = chat.send_message(question)
         return response.text
 
@@ -123,13 +118,13 @@ Context data:
         """
         return f"""Extract information from this document as JSON.
 
-Schema (use these exact field names):
-{json.dumps(schema, indent=2)}
+                Schema (use these exact field names):
+                {json.dumps(schema, indent=2)}
 
-Rules:
-- Return ONLY valid JSON
-- Use null for missing information
-- Follow the exact field names
-- Match the data types specified
+                Rules:
+                - Return ONLY valid JSON
+                - Use null for missing information
+                - Follow the exact field names
+                - Match the data types specified
 
-JSON:"""
+                JSON:"""

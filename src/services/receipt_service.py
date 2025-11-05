@@ -37,8 +37,15 @@ class ReceiptService:
         Returns:
             Structured receipt data
         """
-        self.doc_service.validate_pdf(file_bytes) if mime_type == "application/pdf" else None
+        # Auto-detect MIME type if not provided
+        if mime_type is None:
+            kind = filetype.guess(file_bytes)
+            mime_type = kind.mime if kind else "application/octet-stream"
 
+        # Validate file
+        self.doc_service.validate_file(file_bytes, mime_type)
+
+        # Extract structured data
         schema = self._get_receipt_schema()
         data = self.ai_service.extract_structured(file_bytes, schema, mime_type=mime_type)
 

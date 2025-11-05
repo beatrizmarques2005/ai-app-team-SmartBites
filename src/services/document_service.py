@@ -1,5 +1,3 @@
-# template 
-
 """
 Document Service - Handles PDF/image processing
 
@@ -11,41 +9,30 @@ In a real app, this might include:
 - Format conversion
 - OCR for scanned documents
 """
-
 from langfuse import observe
+import filetype
 
 class DocumentService:
     """Service for document processing operations."""
 
     @observe()
-    def validate_pdf(self, file_bytes: bytes) -> bool:
-        """Validate that file is a valid PDF.
-
-        Args:
-            file_bytes: File bytes to validate
-
-        Returns:
-            True if valid PDF
-
-        Raises:
-            ValueError: If not a valid PDF
-        """
-        # Check PDF header
-        if not file_bytes.startswith(b'%PDF'):
-            raise ValueError("File is not a valid PDF")
+    def validate_file(self, file_bytes: bytes, mime_type: str) -> bool:
+        """Validate that file is a supported PDF or image."""
+        if mime_type == "application/pdf":
+            if not file_bytes.startswith(b'%PDF'):
+                raise ValueError("File is not a valid PDF")
+        elif mime_type in ["image/jpeg", "image/png"]:
+            kind = filetype.guess(file_bytes)
+            if not kind or kind.mime != mime_type:
+                raise ValueError("File is not a valid image")
+        else:
+            raise ValueError(f"Unsupported file type: {mime_type}")
 
         return True
 
     @observe()
     def get_file_info(self, file_bytes: bytes) -> dict:
-        """Get basic file information.
-
-        Args:
-            file_bytes: File bytes
-
-        Returns:
-            Dictionary with file info
-        """
+        """Get basic file information."""
         return {
             "size_bytes": len(file_bytes),
             "size_kb": len(file_bytes) / 1024,
@@ -54,16 +41,5 @@ class DocumentService:
 
     @observe()
     def extract_text(self, file_bytes: bytes) -> str:
-        """Extract raw text from PDF.
-
-        Note: For this demo, we rely on Gemini's built-in PDF processing.
-        In a production app, you might use PyPDF2, pdfplumber, etc.
-
-        Args:
-            file_bytes: PDF file bytes
-
-        Returns:
-            Extracted text (or placeholder message)
-        """
-        # This is a placeholder - Gemini handles PDF extraction
+        """Placeholder for text extraction."""
         return "[Text extraction handled by Gemini multimodal API]"
