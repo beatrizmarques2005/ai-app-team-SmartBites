@@ -14,7 +14,6 @@ In a real app, this might include:
 
 from langfuse import observe
 
-
 class DocumentService:
     """Service for document processing operations."""
 

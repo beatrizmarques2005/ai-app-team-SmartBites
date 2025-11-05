@@ -10,11 +10,12 @@ This service is:
 - Testable (can mock the client)
 """
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai.types import GenerationConfig
 from langfuse import observe
 import os
 import json
+import tempfile
 
 
 class AIService:
@@ -26,44 +27,40 @@ class AIService:
         Args:
             model: Gemini model to use
         """
-        self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-        self.model = model
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        self.model = genai.GenerativeModel(model_name=model)
 
     @observe()
-    def extract_structured(
-        self,
-        file_bytes: bytes,
-        schema: dict,
-        mime_type: str = 'application/pdf'
-    ) -> dict:
-        """Extract structured data from document.
-
-        Args:
-            file_bytes: Document bytes
-            schema: JSON schema defining what to extract
-            mime_type: Document MIME type
-
-        Returns:
-            Extracted data as dictionary
-
-        Raises:
-            Exception: If extraction fails
-        """
+    def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str = 'application/pdf') -> dict:
         prompt = self._build_extraction_prompt(schema)
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=[
-                prompt,
-                types.Part.from_bytes(data=file_bytes, mime_type=mime_type)
-            ],
-            config=types.GenerateContentConfig(
+        # Write bytes to a temporary file
+        suffix = ".pdf" if mime_type == "application/pdf" else ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+            tmp_file.write(file_bytes)
+            tmp_file_path = tmp_file.name
+
+        # Upload the file using its path
+        file_part = genai.upload_file(path=tmp_file_path, mime_type=mime_type)
+
+        # Generate content with Gemini
+        response = self.model.generate_content(
+            contents=[prompt, file_part],
+            generation_config=GenerationConfig(
                 response_mime_type='application/json',
                 temperature=0.1
             )
         )
 
-        return json.loads(response.text)
+        # ✅ Step 2: Check for empty or invalid response
+        if not response.text or response.text.strip() == "":
+            raise ValueError("Gemini returned an empty response. The file may be unclear or the schema too strict.")
+
+        try:
+            return json.loads(response.text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Gemini returned invalid JSON: {response.text}") from e
+
 
     @observe()
     def chat_with_context(
@@ -85,7 +82,7 @@ class AIService:
         if system_instruction is None:
             system_instruction = "You are a helpful AI assistant analyzing data."
 
-        chat = self.client.chats.create(
+        chat = self.model.start_chat(
             model=self.model,
             config={
                 'system_instruction': f"""{system_instruction}
@@ -109,13 +106,12 @@ Context data:
         Returns:
             Summary string
         """
-        response = self.client.models.generate_content(
-            model=self.model,
+        response = self.model.generate_content(
             contents=f"Summarize this in {max_sentences} sentences or less:\n\n{text}"
         )
 
         return response.text
-
+    
     def _build_extraction_prompt(self, schema: dict) -> str:
         """Build prompt for structured extraction.
 
