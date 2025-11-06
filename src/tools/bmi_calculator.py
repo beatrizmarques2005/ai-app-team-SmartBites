@@ -8,12 +8,12 @@ Purpose: Calculate BMI.
 
 import math
 
-def calculate_bmi(height_cm: float, weight_kg: float, round_digits: int = 2) -> tuple:
+def calculate_bmi(height: float, weight_kg: float, round_digits: int = 2) -> tuple:
     """
-    Calculate BMI from height (cm) and weight (kg) and return a tuple (bmi, category).
+    Calculate BMI from height (cm or m) and weight (kg) and return a tuple (bmi, category).
 
     Args:
-        height_cm: Height in centimeters (must be > 0).
+        height: Height in centimeters or meters (must be > 0).
         weight_kg: Weight in kilograms (must be > 0).
         round_digits: Number of decimal places to round the BMI to (>= 0).
 
@@ -24,20 +24,24 @@ def calculate_bmi(height_cm: float, weight_kg: float, round_digits: int = 2) -> 
         ValueError: If inputs are invalid (non-numeric or non-positive).
     """
     try:
-        height_cm = float(height_cm)
+        height = float(height)
         weight_kg = float(weight_kg)
         round_digits = int(round_digits)
     except (TypeError, ValueError):
-        raise ValueError("height_cm and weight_kg must be numeric and round_digits must be an integer")
+        raise ValueError("height and weight_kg must be numeric and round_digits must be an integer")
 
-    if height_cm <= 0:
-        raise ValueError("height_cm must be greater than 0")
+    if height <= 0:
+        raise ValueError("height must be greater than 0")
     if weight_kg <= 0:
         raise ValueError("weight_kg must be greater than 0")
     if round_digits < 0:
         raise ValueError("round_digits must be non-negative")
 
-    height_m = height_cm / 100.0
+    if height < 3:
+        height_m = height
+    else:
+        height_m = height / 100.0
+
     bmi = weight_kg / (height_m ** 2)
     bmi_rounded = round(bmi, round_digits)
 
