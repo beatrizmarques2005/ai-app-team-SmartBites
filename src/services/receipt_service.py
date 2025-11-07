@@ -49,6 +49,13 @@ class ReceiptService:
         schema = self._get_receipt_schema()
         data = self.ai_service.extract_structured(file_bytes, schema, mime_type=mime_type)
 
+        # Normalize items
+        for item in data.get("items", []):
+            if item.get("quantity") is None:
+                item["quantity"] = 1
+            if item.get("unit_price") is None and item.get("total_price") is not None and item["quantity"] == 1:
+                item["unit_price"] = item["total_price"]
+
         return data
 
     @observe()
@@ -95,6 +102,5 @@ If information is not present, say so."""
             "subtotal": "number or null",
             "discounts": "number or null",
             "total": "number or null",
-            "loyalty_card": "string or null",
             "payment_method": "string or null"
         }

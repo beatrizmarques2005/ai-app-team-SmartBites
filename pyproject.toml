@@ -1,0 +1,18 @@
+# template
+
+[project]
+name = "ai-app-team-smartbites"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "google-genai>=1.38.0",
+    "ipykernel>=6.30.1",
+    "langfuse>=3.8.1",
+    "openinference-instrumentation-google-genai>=0.1.8",
+    "pandas>=2.3.2",
+    "python-dotenv>=1.1.1",
+    "reportlab>=4.4.4",
+    "streamlit>=1.49.1"
+]

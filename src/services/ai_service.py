@@ -15,12 +15,18 @@ import os
 import json
 import tempfile
 import re
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+model = str(os.getenv("MODEL"))
+temperature = float(os.getenv("TEMPERATURE"))
 
 class AIService:
     """Service for all AI/LLM operations."""
 
-    def __init__(self, model: str = "gemini-2.5-flash-lite"):
+    def __init__(self, model: str = model):
         """Initialize AI service.
 
         Args:
@@ -47,7 +53,7 @@ class AIService:
             contents=[prompt, file_part],
             generation_config=GenerationConfig(
                 response_mime_type='application/json',
-                temperature=0.1
+                temperature=temperature,
             )
         )
 
@@ -128,3 +134,15 @@ class AIService:
                 - Match the data types specified
 
                 JSON:"""
+
+if __name__ == "__main__":
+    print("Testing AIService...")
+    ai_service = AIService()
+    sample_schema = {
+        "name": "string",
+        "date_of_birth": "string",
+        "address": "string"
+    }
+    # Assuming 'file_bytes' contains the bytes of a PDF or image file
+    # extracted_data = ai_service.extract_structured(file_bytes, sample_schema)
+    # print(extracted_data)

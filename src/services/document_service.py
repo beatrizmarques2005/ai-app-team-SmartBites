@@ -21,7 +21,7 @@ class DocumentService:
         if mime_type == "application/pdf":
             if not file_bytes.startswith(b'%PDF'):
                 raise ValueError("File is not a valid PDF")
-        elif mime_type in ["image/jpeg", "image/png"]:
+        elif mime_type in ["image/jpeg", "image/png", "image/jpg", "image/heic"]:
             kind = filetype.guess(file_bytes)
             if not kind or kind.mime != mime_type:
                 raise ValueError("File is not a valid image")

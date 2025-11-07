@@ -1,3 +1,17 @@
+
+# --- copilot ---
+# import os
+# from dotenv import load_dotenv
+
+# load_dotenv()
+
+# username = os.getenv("USERNAME")
+# password = os.getenv("PASSWORD")
+# dbname = os.getenv("DBNAME")
+
+# mongo_uri = f"mongodb+srv://{username}:{password}@cluster0.xxxxx.mongodb.net/{dbname}?retryWrites=true&w=majority"
+
+
 # calls/database_config.py
 from pymongo import MongoClient
 from dotenv import load_dotenv
