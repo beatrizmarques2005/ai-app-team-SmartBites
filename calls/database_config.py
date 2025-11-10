@@ -53,3 +53,6 @@ def update_one(collection, filter_query, update_doc, upsert=False):
 
 def delete_one(collection, filter_query):
     return collection.delete_one(filter_query)
+
+def delete_many(collection, filter_query):
+    return collection.delete_many(filter_query)
