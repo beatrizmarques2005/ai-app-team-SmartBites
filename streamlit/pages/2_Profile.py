@@ -12,7 +12,7 @@ with col1:
 
 
 with col2:
-    st.markdown('**Name**: Francisca Martins')
+    st.markdown(f'**Name**: {st.session_state.username}')
     st.markdown('**Age**: 25')
     st.markdown('**Household Size**: 1')
     st.markdown('**Alergens/Intolerances**: Lactose')
