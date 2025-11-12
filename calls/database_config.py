@@ -27,18 +27,42 @@ client = MongoClient(MONGO_URI)
 # Replace 'smartbitesDB' with your DB name if needed
 db = client["smartbites"]  # returns the database name from the URI if included
 
-# Example collections (create as needed)
+# Collections
 users_collection = db["users"]
+receipts_collection = db["receipts"]
+pantry_collection = db["pantry"]
+chat_history_collection = db["chat_history"]
+recipes_collection = db["recipes"]
 
 
 # Helper functions
 def insert_one(collection, doc):
+    """
+    Inserts a single document into the specified collection.
+    Parameters:
+        collection: The MongoDB collection object.
+        doc(json file): The document to insert (dict).
+    """
     return collection.insert_one(doc)
 
 def insert_many(collection, docs):
+    """
+    Inserts multiple documents into the specified collection.
+    Parameters:
+        collection: The MongoDB collection object.
+        docs(list of json files): The documents to insert (list of dicts).
+    """
     return collection.insert_many(docs)
 
 def find(collection, query=None, projection=None, limit=0):
+    """
+    Finds documents in the specified collection.
+    Parameters:
+        collection: The MongoDB collection object.
+        query(dict): The query to filter documents.
+        projection(dict): The fields to include or exclude.
+        limit(int): The maximum number of documents to return.
+    """
     query = query or {}
     cursor = collection.find(query, projection)
     if limit:
