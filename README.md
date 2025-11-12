@@ -1,16 +1,65 @@
-# 🤖 Building a Custom AI Assistant Web App
+# 🍽️ SmartBites — AI-Powered Meal Planner & Nutrition Assistant
 
-Development of a domain-specific AI assistant using Streamlit, Gemini API, and RAG-based document querying. The project culminates in a deployed web application capable of intelligent conversation, tool execution, and document Q&A.
+SmartBites is a **personalized meal planning web application** powered by **AI and RAG-based document querying**.
+It helps users plan meals, explore nutrition insights, and generate AI-assisted recommendations — all within an interactive **Streamlit** interface powered by the **Google Gemini API**.
 
 ---
 
 ## 🎯 Project Objective
 
-This project aims to apply advanced AI development techniques to deliver:
+This Capstone project aims to integrate **AI-driven meal planning** with **nutritional guidance** to deliver:
 
-- **Conversational AI Web App**: A deployed Streamlit application with Gemini API integration and custom function-calling tools.
-- **Domain-Specific Tool Suite**: AI-powered utilities tailored to a real-world use case (e.g., study buddy, travel planner, business assistant).
-- **RAG-Enabled Knowledge System**: Intelligent document upload and querying using embeddings and retrieval-augmented generation.
+* **Conversational AI Web App**: Streamlit-based chatbot using the Gemini API for nutrition Q&A and custom recommendations.
+* **Smart Meal Planner**: AI-generated meal suggestions adapted to user preferences and dietary needs.
+* **RAG Knowledge Base**: Upload and query nutrition or recipe documents through Retrieval-Augmented Generation.
+* **Interactive Experience**: Intuitive web interface for healthy meal planning and daily food tracking.
+
+---
+
+## 👥 Team
+
+* **Beatriz Marques** – 20231605
+* **Constança Pereira da Silva** – 20231720
+* **Maria Inês Santos** – 20231630
+* **Mariana Calais-Pedro** – 20231641
+
+---
+
+## 📊 Methodology
+
+### Capstone Development Timeline
+
+Following the **NOVA IMS Capstone structure**, SmartBites was developed in three phases:
+
+1. **📝 Week 3 – Initial Proposal**
+
+   * Defined the project concept: AI-based meal planner & nutrition assistant
+   * Formed the team and distributed roles
+   * Drafted contribution plan and project scope
+
+2. **🧩 Week 12 – Technical Blueprint**
+
+   * Detailed architecture and module responsibilities
+   * Integrated Gemini API and RAG pipeline for knowledge retrieval
+   * Designed the Streamlit app structure and function-calling tools
+
+3. **🚀 Final Delivery**
+
+   * Fully deployed SmartBites application on Streamlit Cloud
+   * Accompanied by final presentation and technical report
+
+---
+
+## 🧠 Technologies Used
+
+| Category                      | Tools & Frameworks              |
+| ----------------------------- | ------------------------------- |
+| **Frontend & Deployment**     | Streamlit, Streamlit Cloud      |
+| **AI Integration**            | Google Gemini API               |
+| **Knowledge Retrieval (RAG)** | ChromaDB, LangChain / LangSmith |
+| **Programming Language**      | Python                          |
+| **Collaboration**             | Git, GitHub                     |
+| **Environment Management**    | `venv`, `requirements.txt`      |
 
 ---
 
@@ -20,148 +69,148 @@ This project aims to apply advanced AI development techniques to deliver:
 ├── data/
 │   └── sample_documents/
 ├── images/
-│   └── XX.png
+│   └── smartbites_preview.png
 ├── notebooks/
-│   ├── XX.ipynb
-│   └── XX.ipynb
+│   ├── model_prototyping.ipynb
+│   └── data_processing.ipynb
 ├── src/
 │   ├── services/
+│   │   ├── meal_service.py
+│   │   ├── nutrition_service.py
+│   │   └── ai_service.py
 │   ├── tools/
+│   │   ├── calorie_calculator.py
+│   │   └── ingredient_parser.py
 │   ├── utils/
+│   │   ├── config.py
+│   │   └── tracing.py
 │   └── ai_client.py
 ├── report/
 │   └── final_report.pdf
-├── README.md
 ├── streamlit_app.py
 ├── requirements.txt
-└── .gitignore
+└── README.md
 ```
 
 ---
 
-## 👥 Team
+## 🔧 Architecture Overview
 
-- Beatriz Marques – 20231605  
-- Constança Pereira da Silva - 20231720
-- Maria Inês Santos - 20231630
-- Mariana Calais-Pedro – 20231641
+The SmartBites system follows a **modular AI architecture**, ensuring clear separation between layers:
 
----
-
-## 📊 Methodology
-
-### Capstone Development Timeline
-
-This project follows a milestone-based structure aligned with NOVA IMS Capstone guidelines:
-
-1. **Week 3 – Initial Proposal**
-   - Team formation
-   - Preliminary app concept and problem statement
-   - Role preferences and contribution plans
-
-2. **Week 12 – Technical Blueprint**
-   - Finalized problem definition and solution overview
-   - Detailed team roles and responsibilities
-   - Implementation plan and scope management
-
-3. **Final Delivery**
-   - Deployed Streamlit application
-   - Pitch presentation and technical Q&A
-
----
-
-## 🧠 Technologies Used
-
-- **Google Gemini API** – Conversational AI and function calling  
-- **Streamlit** – Web app framework and deployment  
-- **ChromaDB** – Vector database for document embeddings  
-- **LangChain / LangSmith** – RAG pipeline and tool orchestration  
-- **Python** – Core programming language  
-- **Git & GitHub** – Version control and collaboration
+```text
+ ┌───────────────────────────────┐
+ │         Streamlit UI          │
+ │  (user input & visualization) │
+ └──────────────┬────────────────┘
+                │
+                ▼
+ ┌───────────────────────────────┐
+ │     Service Layer (src/)      │
+ │  - meal_service.py            │
+ │  - nutrition_service.py       │
+ │  Handles business logic       │
+ └──────────────┬────────────────┘
+                │
+                ▼
+ ┌───────────────────────────────┐
+ │         AI Layer              │
+ │   Gemini API + RAG (ChromaDB) │
+ │   Natural language reasoning  │
+ └──────────────┬────────────────┘
+                │
+                ▼
+ ┌───────────────────────────────┐
+ │     Tools & Utilities         │
+ │  - Calorie calculators        │
+ │  - Config & tracing           │
+ └───────────────────────────────┘
+```
 
 ---
 
-## 📚 References
+## ⚙️ How to Run *SmartBites*
 
-- [Google AI Studio](https://ai.google.dev/)  
-- [Streamlit Documentation](https://docs.streamlit.io/)  
-- [ChromaDB Docs](https://docs.trychroma.com/)  
-- [LangSmith Docs](https://docs.smith.langchain.com/)  
-- [Gemini API Cookbook](https://github.com/google-gemini/cookbook)  
-- [Python Crash Course, 3rd Edition](https://nostarch.com/pythoncrashcourse3e)
+### 1️⃣ Create and Activate the Virtual Environment
 
----
+**Windows**
 
-## 🚀 How to Run a *Streamlit* App
+```bash
+python -m venv project-env
+smartbites-env\Scripts\activate
+```
 
-### 🧩 Steps
+**macOS / Linux**
 
-1. **Activate the environment**
+```bash
+python3 -m venv project-env
+source project-env/bin/activate
+```
 
-    On Windows: 
-    ```bash
-    project-env\Scripts\activate
-    ```
+### 2️⃣ Install Dependencies
 
-    On macOS/Linux:
-    ```bash
-    source project-env/bin/activate
-    ```
+```bash
+pip install -r requirements.txt
+```
 
-2. **Run *Streamlit* app**
+### 3️⃣ Run the App
 
-    ```bash
-    streamlit run streamlit_app.py
-    ```
+```bash
+streamlit run streamlit_app.py
+```
 
-    Starts the *Streamlit* server and launches your app in the browser (usually at [http://localhost:8501](http://localhost:8501/)).
+SmartBites will start in your browser at [http://localhost:8501](http://localhost:8501).
 
 ---
 
-### 💡 Tips
+## 💡 Development Tips
 
-- To stop the app, press **Ctrl + C** in the terminal.
-- To check your *Streamlit* version:
+* To stop the app: **Ctrl + C** in the terminal
+* To check your Streamlit version:
 
-    ```bash
-    streamlit --version
-    ```
+  ```bash
+  streamlit --version
+  ```
+* Update dependencies when new modules are added:
+
+  ```bash
+  pip freeze > requirements.txt
+  ```
 
 ---
 
+## 🤪 Git Workflow Guide
 
-## 🧪 Git Workflow Guide
+Ensure smooth collaboration across the team with these steps:
 
-Follow these steps to collaborate smoothly with your team:
-
-### 🔀 Step 1: Check your current branch
-
-Before you start working, verify which branch you're on:
+### 🔍 1. Check your branch
 
 ```bash
 git branch
 ```
-If you're already on your personal branch, proceed to Step 2. If not, switch to your branch:
+
+If needed, switch to your branch:
 
 ```bash
 git checkout your-branch-name
 ```
-### 🔄 Step 2: Sync with the shared branch
-Before you start working, pull the latest changes from the shared branch:
+
+### 🔄 2. Sync with the shared branch
+
 ```bash
 git pull origin shared-branch-name
 ```
-Now you're ready to work!
 
-### 💾 Step 3: Save and push your changes
-When you're done working:
+### 💾 3. Save and push your work
+
 ```bash
 git add .
-git commit -m "descriptive commit message"
+git commit -m "Add: meal planner UI"
 git push origin your-branch-name
 ```
-### 🔁 Step 4: Update the shared branch
-After pushing your changes, merge them into the shared branch:
+
+### 🔁 4. Merge your changes
+
 ```bash
 git checkout shared-branch-name
 git pull origin shared-branch-name
@@ -173,239 +222,21 @@ git push origin shared-branch-name
 
 ## 🚀 Deployment Notes
 
-The app will be deployed on **Streamlit Cloud**.
+SmartBites is deployed on **Streamlit Cloud**.
 
-- Ensure proper environment setup using `venv` and `requirements.txt`  
-- Monitor app performance and document all deployment steps  
-- Include deployment instructions in the final report and repository  
-- Use Streamlit’s sharing and access controls to manage visibility
+* ✅ Ensure correct environment setup via `requirements.txt`
+* ✅ Document all environment variables in `.env.example`
+* ✅ Test RAG-based search and API integrations before deployment
+* ✅ Use Streamlit access controls for visibility and version management
 
-This is the [deployment URL]().
+Deployment URL: *to be added upon final publication.*
 
 ---
 
+## 📚 References
 
-
-# TEMPLATE
-
-# Professional Contract Analyzer
-
-This is a **complete, production-ready AI application** demonstrating professional architecture patterns.
-
-## Project Structure
-
-```
-contract_analyzer/
-├── app.py                      # Streamlit UI (entry point)
-├── .env.example                # Environment template
-├── README.md                   # This file
-│
-├── services/                   # Business logic layer
-│   ├── __init__.py
-│   ├── contract_service.py     # Contract domain logic
-│   ├── document_service.py     # PDF processing
-│   └── ai_service.py           # All Gemini API calls
-│
-├── tools/                      # Function calling tools
-│   ├── __init__.py
-│   ├── date_calculator.py      # Date calculations
-│   └── amount_calculator.py    # Financial calculations
-│
-└── utils/                      # Shared utilities
-    ├── __init__.py
-    ├── tracing.py              # Langfuse configuration
-    └── config.py               # Environment variables
-```
-
-## Architecture Principles
-
-### 1. Separation of Concerns
-- **UI Layer (`app.py`)**: Only handles display and user interaction
-- **Service Layer (`services/`)**: Contains all business logic
-- **AI Layer (`ai_service.py`)**: Isolated AI/LLM operations
-- **Tools Layer (`tools/`)**: Precise calculations
-
-### 2. Dependency Injection
-- Services receive dependencies in constructor
-- Easy to test with mock dependencies
-- Easy to swap implementations
-
-### 3. Observability
-- Every important function has `@observe()` decorator
-- Full trace visibility in Langfuse
-- Debug production issues easily
-
-### 4. Reusability
-- Services can be imported and used anywhere
-- No coupling to Streamlit
-- Works in CLI, API, or other UIs
-
-## Setup
-
-### 1. Install Dependencies
-
-```bash
-uv add google-genai streamlit langfuse python-dotenv
-```
-
-### 2. Configure Environment
-
-```bash
-# Copy example and fill in your keys
-cp .env.example .env
-
-# Edit .env with your API keys
-```
-
-### 3. Run Application
-
-```bash
-uv run streamlit run app.py
-```
-
-## How It Works
-
-### Data Flow Example
-
-When a user uploads a contract PDF:
-
-```
-1. User uploads PDF in Streamlit UI (app.py)
-        ↓
-2. app.py calls: service.analyze_contract(file_bytes)
-        ↓
-3. ContractService.analyze_contract() orchestrates:
-   a. doc_service.validate_pdf(file_bytes)
-   b. ai_service.extract_structured(file_bytes, schema)
-   c. date_calc.days_until(expiry_date)
-   d. amount_calc.calculate_total_value(...)
-        ↓
-4. Returns enriched contract data
-        ↓
-5. app.py displays results
-```
-
-**Every step is traced in Langfuse!**
-
-### Tracing Flow
-
-With `@observe()` decorators, Langfuse shows:
-
-```
-analyze_contract (parent)
-├── validate_pdf
-├── extract_structured
-│   └── Gemini API call (input, output, tokens, latency)
-├── days_until
-└── calculate_total_value
-```
-
-## Testing Services
-
-Services can be tested independently:
-
-```python
-# test_contract_service.py
-from services.contract_service import ContractService
-
-def test_analyze_contract():
-    service = ContractService()
-
-    with open("test_contract.pdf", "rb") as f:
-        result = service.analyze_contract(f.read())
-
-    assert "parties" in result
-    assert "expiration_date" in result
-```
-
-No Streamlit required!
-
-## Reusing Services
-
-Use services in different contexts:
-
-```python
-# CLI script
-from services.contract_service import ContractService
-
-service = ContractService()
-
-with open("contract.pdf", "rb") as f:
-    data = service.analyze_contract(f.read())
-
-print(f"Parties: {data['parties']}")
-```
-
-```python
-# API endpoint (FastAPI)
-from fastapi import FastAPI, UploadFile
-from services.contract_service import ContractService
-
-app = FastAPI()
-service = ContractService()
-
-@app.post("/analyze")
-async def analyze(file: UploadFile):
-    content = await file.read()
-    return service.analyze_contract(content)
-```
-
-## Adding New Features
-
-### Add a New Service
-
-1. Create file in `services/`
-2. Add `@observe()` to important methods
-3. Import and use in other services or UI
-
-### Add a New Tool
-
-1. Create file in `tools/`
-2. Add `@observe()` to functions
-3. Use in service layer
-
-### Extend UI
-
-1. Keep business logic in services
-2. UI only handles display and user input
-3. Call service methods
-
-## Key Takeaways
-
-### ✅ Benefits of This Architecture
-
-- **Testable**: Services work without UI
-- **Maintainable**: Clear separation makes changes easy
-- **Observable**: See everything in Langfuse
-- **Reusable**: Services work in any interface
-- **Team-friendly**: Different files for different concerns
-- **Scalable**: Easy to add features without breaking things
-
-### ❌ What We Avoided
-
-- Monolithic single-file apps
-- UI mixed with business logic
-- Repeated client initialization
-- Hardcoded values everywhere
-- No visibility into what's happening
-- Untestable code
-
-## Learning Resources
-
-- [Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
-- [Service Layer Pattern](https://martinfowler.com/eaaCatalog/serviceLayer.html)
-- [Langfuse Docs](https://langfuse.com/docs)
-- [Streamlit Docs](https://docs.streamlit.io)
-
-## Next Steps
-
-**Use this as a template for your team project!**
-
-1. Copy this structure
-2. Replace "contract" with your domain
-3. Define your schemas and business logic
-4. Build your UI
-5. Add your domain-specific tools
-6. Deploy to Streamlit Cloud
-
-**You have everything you need to build professional AI applications!** 🚀
+* [Google Gemini API Documentation](https://ai.google.dev/)
+* [Streamlit Documentation](https://docs.streamlit.io/)
+* [ChromaDB](https://docs.trychroma.com/)
+* [LangChain Docs](https://python.langchain.com/)
+* [Gemini Cookbook](https://github.com/google-gemini/cookbook)
