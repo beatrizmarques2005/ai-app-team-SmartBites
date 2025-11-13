@@ -221,3 +221,5 @@ secrets.py
 # Extra Python compiled files (Windows)
 *.pyd
 *.pyo
+
+*.exe
