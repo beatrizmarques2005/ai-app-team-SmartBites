@@ -119,3 +119,50 @@ class DateCalculator:
         """
         dt = datetime.fromisoformat(date)
         return dt.weekday() >= 5  # Saturday = 5, Sunday = 6
+
+
+# MINÊS
+
+def get_food_status(open_date: str, shelf_life: int) -> dict:
+    """
+    Calculate remaining shelf of like for a pantry item
+    
+    Args:
+        open_date (str): Date item was opened (DD-MM-YYYY)
+        shelf_life (int): Days item stays good after opening
+
+    Returns:
+        dict: {
+            "open_date": str,
+            "expire_date": str,
+            "days_remaining": int,
+            "status: str} # "Fresh", "Expiring Soon", "Expired"
+    """
+
+    try:
+        open_date = datetime.strptime(open_date, "%d-%m-%Y")
+    except ValueError:
+        raise ValueError("open_date must be in "DD-MM-YYYY" format")
+    
+    if shelf_life <= 0:
+        raise ValueError("shelf_life must be a positive integer")
+    
+    current_date = datetime.today()
+    expire_date = open_date + timedelta(days = shelf_life)
+    remaining = (expire_date - current_date).days
+    remaining_nr_days = max(0, remaining)
+
+    if remaining_nr_days == 0:
+        status = "Expired"
+    elif remaining_nr_days <= 3:
+        status = "Expiring Soon"
+    else:
+        status = "Fresh"
+
+    return {
+        "open_date": open_date,
+        "expire_date": expire_date.date(),
+        "days_remaining": remaining_nr_days,
+        "status": status
+    }
+                                         
