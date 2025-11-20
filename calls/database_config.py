@@ -17,6 +17,7 @@ from pymongo import MongoClient
 from dotenv import load_dotenv
 import os
 
+
 load_dotenv()  # reads .env in project root
 MONGO_URI = os.getenv("MONGO_URI")
 if not MONGO_URI:
