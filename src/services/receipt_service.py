@@ -78,6 +78,7 @@ class ReceiptService:
             system_instruction
         )
 
+    @observe()
     def _get_receipt_schema(self) -> dict:
         """Define receipt extraction schema.
 

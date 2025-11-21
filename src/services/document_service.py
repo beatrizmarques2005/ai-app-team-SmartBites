@@ -1,13 +1,6 @@
 """
 Document Service - Handles PDF/image processing
 
-This service would handle document-specific operations.
-For now, it's a placeholder since Gemini handles PDFs directly.
-In a real app, this might include:
-- Text extraction
-- Image preprocessing
-- Format conversion
-- OCR for scanned documents
 """
 from langfuse import observe
 import filetype

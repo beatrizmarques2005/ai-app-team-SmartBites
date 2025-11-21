@@ -1,23 +1,18 @@
 """
 AI Service - Handles all Gemini API interactions
 
-This service is:
-- Generic (doesn't know about contracts specifically)
-- Reusable across different domains
-- Fully traced with Langfuse
-- Testable (can mock the client)
 """
 
-import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
-from langfuse import observe
 import os
 import json
 import tempfile
 import re
-from dotenv import load_dotenv
-import os
 import pathlib
+
+import google.generativeai as genai
+from google.generativeai.types import GenerationConfig
+from dotenv import load_dotenv
+from langfuse import observe
 
 load_dotenv()
 
@@ -58,7 +53,7 @@ class AIService:
             )
         )
 
-        # ✅ Step 2: Check for empty or invalid response
+        # Check for empty or invalid response
         if not response.text or response.text.strip() == "":
             raise ValueError("Gemini returned an empty response. The file may be unclear or the schema too strict.")
 
@@ -89,9 +84,8 @@ class AIService:
 
         # Send system instruction and context as the first message
         chat.send_message(f"""{system_instruction}
-
-                            Context data:
-                            {json.dumps(context, indent=2)}""")
+                                Context data:
+                                {json.dumps(context, indent=2)}""")
 
         # Send the user's question
         response = chat.send_message(question)
@@ -114,6 +108,7 @@ class AIService:
 
         return response.text
     
+    @observe()
     def _build_extraction_prompt(self, schema: dict) -> str:
         """Build prompt for structured extraction.
 
@@ -135,6 +130,78 @@ class AIService:
                 - Match the data types specified
 
                 JSON:"""
+    
+    @observe()
+    def extract_recipe_from_html(self, html: str) -> dict:
+        """Extract structured recipe data from raw HTML using Gemini."""
+
+        prompt = f"""
+        Extract a recipe from the following HTML.
+        Return ONLY valid JSON.
+
+        The JSON structure must be:
+
+        {{
+          "title": "string",
+          "ingredients": ["string", ...],
+          "instructions": ["string", ...],
+          "estimated_time_minutes": int
+        }}
+
+        HTML:
+        {html}
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                response_mime_type="application/json",
+                temperature=temperature,
+            ),
+        )
+
+        raw = response.text.strip()
+
+        if raw.startswith("```json") or raw.startswith("```"):
+            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.DOTALL).strip()
+
+        return json.loads(raw)
+
+    @observe()
+    def ask_recipe_question(self, recipe: dict, question: str) -> str:
+        """Ask Gemini about a recipe in JSON format."""
+        
+        prompt = f"""
+        You are a cooking assistant.
+
+        Recipe:
+        {json.dumps(recipe, indent=2)}
+
+        Question:
+        {question}
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                temperature=temperature,
+            )
+        )
+
+        return response.text
+
+    @observe()
+    def validate_recipe(self, data: dict) -> dict:
+        """Ensure recipe contains required fields."""
+        return {
+            "title": data.get("title", None),
+            "ingredients": data.get("ingredients", []),
+            "instructions": data.get("instructions", []),
+            "estimated_time_minutes": data.get("estimated_time_minutes", None),
+        }
+
+
+
 
 if __name__ == "__main__":
     print("Testing AIService...")
