@@ -151,6 +151,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venv-tata/
 
 # Spyder project settings
 .spyderproject
