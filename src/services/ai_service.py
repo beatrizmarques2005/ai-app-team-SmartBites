@@ -1,22 +1,18 @@
 """
 AI Service - Handles all Gemini API interactions
 
-This service is:
-- Generic (doesn't know about contracts specifically)
-- Reusable across different domains
-- Fully traced with Langfuse
-- Testable (can mock the client)
 """
 
-import google.generativeai as genai
-from google.generativeai.types import GenerationConfig
-from langfuse import observe
 import os
 import json
 import tempfile
 import re
+import pathlib
+
+import google.generativeai as genai
+from google.generativeai.types import GenerationConfig
 from dotenv import load_dotenv
-import os
+from langfuse import observe
 
 load_dotenv()
 
@@ -57,7 +53,7 @@ class AIService:
             )
         )
 
-        # ✅ Step 2: Check for empty or invalid response
+        # Check for empty or invalid response
         if not response.text or response.text.strip() == "":
             raise ValueError("Gemini returned an empty response. The file may be unclear or the schema too strict.")
 
@@ -88,9 +84,8 @@ class AIService:
 
         # Send system instruction and context as the first message
         chat.send_message(f"""{system_instruction}
-
-                            Context data:
-                            {json.dumps(context, indent=2)}""")
+                                Context data:
+                                {json.dumps(context, indent=2)}""")
 
         # Send the user's question
         response = chat.send_message(question)
@@ -113,6 +108,7 @@ class AIService:
 
         return response.text
     
+    @observe()
     def _build_extraction_prompt(self, schema: dict) -> str:
         """Build prompt for structured extraction.
 
@@ -134,15 +130,112 @@ class AIService:
                 - Match the data types specified
 
                 JSON:"""
+    
+    @observe()
+    def extract_recipe(self, html: str) -> dict:
+        prompt = f"""
+        Extract a structured cooking recipe from the HTML below. 
+        Only return valid JSON.
 
-if __name__ == "__main__":
-    print("Testing AIService...")
-    ai_service = AIService()
-    sample_schema = {
-        "name": "string",
-        "date_of_birth": "string",
-        "address": "string"
-    }
-    # Assuming 'file_bytes' contains the bytes of a PDF or image file
-    # extracted_data = ai_service.extract_structured(file_bytes, sample_schema)
-    # print(extracted_data)
+        Required JSON fields:
+        - title: string
+        - ingredients: list of strings
+        - instructions: list of strings
+        - estimated_time: integer (minutes)
+
+        HTML:
+        {html}
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                temperature=self.temperature,
+                response_mime_type="application/json"
+            )
+        )
+
+        if not response or not response.text:
+            return None
+
+        try:
+            return json.loads(response.text)
+        except:
+            return None
+
+    @observe()
+    def generate_recipe_from_ingredients(self, ingredients, servings=1, dietary=None):
+        prompt = f"""
+        Create a detailed cooking recipe using ONLY these ingredients:
+        {', '.join(ingredients)}
+
+        Requirements:
+        - Prioritize ingredients close to expiration.
+        - Adjust quantities for {servings} servings.
+        """
+
+        if dietary:
+            prompt += f"\n- Make it suitable for a {dietary} diet."
+
+        prompt += """
+        Return only valid JSON with the structure:
+        {
+            "title": "...",
+            "servings": int,
+            "ingredients": [
+                "ingredient - quantity"
+            ],
+            "instructions": [
+                "step1", "step2", ...
+            ]
+        }
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                temperature=self.temperature,
+                response_mime_type="application/json"
+            )
+        )
+
+        if not response or not response.text:
+            return None
+
+        try:
+            return json.loads(response.text)
+        except:
+            return None
+
+    @observe()
+    def ask_recipe_question(self, recipe: dict, question: str) -> str:
+        """Ask Gemini a question about a recipe."""
+        prompt = f"""
+        You are a cooking assistant.
+
+        Recipe:
+        {json.dumps(recipe, indent=2)}
+
+        Question:
+        {question}
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                temperature=self.temperature
+            )
+        )
+
+        return response.text if response else None
+
+    @observe()
+    def validate_recipe(self, data: dict) -> dict:
+        """Ensure recipe contains required fields."""
+        return {
+            "title": data.get("title"),
+            "ingredients": data.get("ingredients", []),
+            "instructions": data.get("instructions", []),
+            "estimated_time_minutes": data.get("estimated_time") or data.get("estimated_time_minutes")
+        }
+
