@@ -13,7 +13,6 @@ from langfuse import observe
 from .ai_service import AIService
 from .document_service import DocumentService
 
-
 class ReceiptService:
     """Service for analyzing supermarket receipts."""
 
@@ -70,8 +69,8 @@ class ReceiptService:
             AI's answer
         """
         system_instruction = """You are a helpful assistant analyzing supermarket receipts.
-Answer questions based on the provided receipt data.
-If information is not present, say so."""
+                                Answer questions based on the provided receipt data.
+                                If information is not present, say so."""
 
         return self.ai_service.chat_with_context(
             question,
@@ -104,3 +103,4 @@ If information is not present, say so."""
             "total": "number or null",
             "payment_method": "string or null"
         }
+
