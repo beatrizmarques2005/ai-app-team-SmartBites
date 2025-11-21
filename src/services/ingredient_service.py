@@ -1,42 +1,42 @@
-
+import json
 from langfuse import observe
 
 class IngredientService:
-    def __init__(self):
-        # TODO: Initialize DB connection
-        pass
-        # self.client = MongoClient("mongodb://localhost:27017")
-        # self.db = self.client["kitchen"]
-        # self.collection = self.db["ingredients"]
+    """Check inventory and suggest AI-based replacements."""
+
+    def __init__(self, inventory, ai_service):
+        self.inventory = inventory
+        self.ai = ai_service
 
     @observe()
-    def check_ingredients(self, recipe_ingredients: list):
+    def check_missing(self, recipe):
         missing = []
-        available = []
+        inv = [i.lower() for i in self.inventory.get_ingredients_for_recipe()]
 
-        for ing in recipe_ingredients:
-            name = ing.split()[1] if " " in ing else ing
+        for ingredient in recipe.get("ingredients", []):
+            name = ingredient.lower()
+            if not any(item in name for item in inv):
+                missing.append(ingredient)
 
-            match = self.collection.find_one({"name": {"$regex": name, "$options": "i"}})
-
-            if match:
-                available.append({"ingredient": ing, "status": "ok"})
-            else:
-                missing.append(name)
-
-        return available, missing
+        return missing
 
     @observe()
-    def suggest_replacement(self, ingredient: str):
-        """
-        AI or rule-based replacement suggestions.
-        This version is simple; you can plug in AI later.
-        """
-        # TODO: Integrate AI model for better suggestions
+    def suggest_replacement(self, ingredient: str, context=None):
+        question = f"Suggest 3 suitable replacements for '{ingredient}'"
+        if context:
+            question += f" in the context of {context}"
 
-        replacements = {
-            "tomato": ["tinned tomatoes", "passata", "tomato sauce"],
-            "milk": ["soy milk", "oat milk", "cream"],
-        }
+        ai_response = self.ai.ask_recipe_question(
+            recipe={"ingredients": [ingredient]},
+            question=question
+        )
 
-        return replacements.get(ingredient.lower(), [])
+        try:
+            replacements = json.loads(ai_response)
+            if isinstance(replacements, list):
+                return replacements
+        except:
+            pass
+
+        # fallback: split text by commas
+        return [r.strip() for r in ai_response.split(",") if r.strip()]

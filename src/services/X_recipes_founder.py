@@ -1,8 +1,11 @@
 # no idea yet
+import logging
 import os
 import requests
 from bs4 import BeautifulSoup
 from services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 
 class RecipeService:
     def __init__(self):
@@ -15,8 +18,8 @@ class RecipeService:
             r = requests.get(url, timeout=5)
             r.raise_for_status()
             return r.text
-        except Exception as e:
-            print(f"⚠️ Could not fetch {url}: {e}")
+        except requests.RequestException as e:
+            logger.exception("Could not fetch %s: %s", url, e)
             return None
 
     def search_recipes(self, query: str) -> list:
@@ -26,7 +29,7 @@ class RecipeService:
         results = []
 
         for url in self.recipe_urls:
-            print(f"🔍 Searching in {url}...")
+            logger.debug("Searching in %s", url)
             html = self.fetch_page(url)
 
             if not html:
@@ -36,7 +39,7 @@ class RecipeService:
             text = soup.get_text(" ", strip=True)
 
             if query.lower() in text.lower():
-                print("  -> Found potential match! Extracting with AI...")
+                logger.debug("Found potential match at %s — extracting with AI", url)
                 recipe = self.ai.extract_recipe_from_html(html)
                 results.append(recipe)
 

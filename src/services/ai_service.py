@@ -132,21 +132,16 @@ class AIService:
                 JSON:"""
     
     @observe()
-    def extract_recipe_from_html(self, html: str) -> dict:
-        """Extract structured recipe data from raw HTML using Gemini."""
-
+    def extract_recipe(self, html: str) -> dict:
         prompt = f"""
-        Extract a recipe from the following HTML.
-        Return ONLY valid JSON.
+        Extract a structured cooking recipe from the HTML below. 
+        Only return valid JSON.
 
-        The JSON structure must be:
-
-        {{
-          "title": "string",
-          "ingredients": ["string", ...],
-          "instructions": ["string", ...],
-          "estimated_time_minutes": int
-        }}
+        Required JSON fields:
+        - title: string
+        - ingredients: list of strings
+        - instructions: list of strings
+        - estimated_time: integer (minutes)
 
         HTML:
         {html}
@@ -155,22 +150,66 @@ class AIService:
         response = self.model.generate_content(
             contents=prompt,
             generation_config=GenerationConfig(
-                response_mime_type="application/json",
-                temperature=temperature,
-            ),
+                temperature=self.temperature,
+                response_mime_type="application/json"
+            )
         )
 
-        raw = response.text.strip()
+        if not response or not response.text:
+            return None
 
-        if raw.startswith("```json") or raw.startswith("```"):
-            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.DOTALL).strip()
+        try:
+            return json.loads(response.text)
+        except:
+            return None
 
-        return json.loads(raw)
+    @observe()
+    def generate_recipe_from_ingredients(self, ingredients, servings=1, dietary=None):
+        prompt = f"""
+        Create a detailed cooking recipe using ONLY these ingredients:
+        {', '.join(ingredients)}
+
+        Requirements:
+        - Prioritize ingredients close to expiration.
+        - Adjust quantities for {servings} servings.
+        """
+
+        if dietary:
+            prompt += f"\n- Make it suitable for a {dietary} diet."
+
+        prompt += """
+        Return only valid JSON with the structure:
+        {
+            "title": "...",
+            "servings": int,
+            "ingredients": [
+                "ingredient - quantity"
+            ],
+            "instructions": [
+                "step1", "step2", ...
+            ]
+        }
+        """
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(
+                temperature=self.temperature,
+                response_mime_type="application/json"
+            )
+        )
+
+        if not response or not response.text:
+            return None
+
+        try:
+            return json.loads(response.text)
+        except:
+            return None
 
     @observe()
     def ask_recipe_question(self, recipe: dict, question: str) -> str:
-        """Ask Gemini about a recipe in JSON format."""
-        
+        """Ask Gemini a question about a recipe."""
         prompt = f"""
         You are a cooking assistant.
 
@@ -184,67 +223,19 @@ class AIService:
         response = self.model.generate_content(
             contents=prompt,
             generation_config=GenerationConfig(
-                temperature=temperature,
+                temperature=self.temperature
             )
         )
 
-        return response.text
+        return response.text if response else None
 
     @observe()
     def validate_recipe(self, data: dict) -> dict:
         """Ensure recipe contains required fields."""
         return {
-            "title": data.get("title", None),
+            "title": data.get("title"),
             "ingredients": data.get("ingredients", []),
             "instructions": data.get("instructions", []),
-            "estimated_time_minutes": data.get("estimated_time_minutes", None),
+            "estimated_time_minutes": data.get("estimated_time") or data.get("estimated_time_minutes")
         }
-
-
-
-
-if __name__ == "__main__":
-    print("Testing AIService...")
-    ai_service = AIService()
-
-    sample_schema = {
-        "name": "string",
-        "date_of_birth": "string",
-        "address": "string"
-    }
-
-    # Try to run structured extraction if a sample file is available (path from env or default sample.pdf)
-    sample_path = os.getenv("SAMPLE_FILE", "sample.pdf")
-    p = pathlib.Path(sample_path)
-    if p.exists():
-        try:
-            file_bytes = p.read_bytes()
-            extracted_data = ai_service.extract_structured(file_bytes, sample_schema, mime_type="application/pdf")
-            print("Extracted structured data:")
-            print(json.dumps(extracted_data, indent=2))
-        except Exception as e:
-            print("Extraction error:", e)
-    else:
-        print(f"No sample file found at {sample_path}, skipping extract_structured test.")
-
-    # Quick summarize test
-    try:
-        sample_text = (
-            "SmartBites is a meal-recommendation application that analyzes recipes, menus, "
-            "and food labels to provide personalized dietary insights. It helps users make "
-            "healthier choices by flagging allergens and intolerances, suggesting substitutions, "
-            "and tailoring recommendations to dietary goals and preferences."
-        )
-        print("\nSummary:")
-        print(ai_service.summarize(sample_text, max_sentences=2))
-    except Exception as e:
-        print("Summarize error:", e)
-
-    # Quick chat_with_context test
-    try:
-        context = {"app": "SmartBites", "feature": "nutrition analysis"}
-        print("\nChat response:")
-        print(ai_service.chat_with_context("How can this feature help users?", context))
-    except Exception as e:
-        print("Chat error:", e)
 

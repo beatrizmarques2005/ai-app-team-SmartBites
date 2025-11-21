@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 from ics import Calendar, Event
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 time_slots = {
     "breakfast": "08:00",
@@ -69,4 +72,4 @@ if __name__ == "__main__":
 
     entries = create_calendar_entries(weekly_plan)
     ics_file = export_to_ics(entries, "SmartBites_MealPlan.ics")
-    print(f"Calendar saved to: {ics_file}")
+    logger.info("Calendar saved to: %s", ics_file)

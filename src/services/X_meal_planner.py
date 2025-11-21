@@ -12,6 +12,9 @@ from typing import List, Dict, Any, Optional
 import itertools
 import os
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Remote recipes source(s) (set via env RECIPE_SOURCE_URLS or RECIPE_SOURCE_URL), fallback to this local list
 # RECIPE_SOURCE_URLS may be a comma-separated list of URLs
@@ -81,9 +84,8 @@ def _fetch_recipes_from_remote(url: str, timeout: float = 5.0) -> List[Dict[str,
         # if the remote returns a dict with a key like "recipes"
         if isinstance(data, dict) and "recipes" in data and isinstance(data["recipes"], list):
             return data["recipes"]
-    except Exception:
-        # network or parsing failed; caller will use fallback
-        pass
+    except (requests.RequestException, ValueError) as e:
+        logger.debug("Failed to fetch or parse remote recipes from %s: %s", url, e)
     return []
 
 
