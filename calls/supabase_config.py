@@ -56,5 +56,49 @@ def initialize_database():
     except Exception as e:
         print("Note: Tables might already exist or there was an error:", e)
 
+def insert_receipt_into_pantry(user_id: str, receipt_json: dict):
+    """
+    Takes JSON from OCR-extracted receipt and inserts items into pantry_items table.
+    """
+
+    store_name = receipt_json.get("store_name")
+    purchase_date = receipt_json.get("purchase_date")
+    purchase_time = receipt_json.get("purchase_time")
+    items = receipt_json.get("items", [])
+
+    rows_to_insert = []
+
+    for item in items:
+        rows_to_insert.append({
+            "user_id": user_id,
+            "item_name": item.get("name"),
+            "quantity": item.get("quantity", 1),
+            "store_name": store_name,
+            "purchase_date": purchase_date,
+            "purchase_time": purchase_time,
+        })
+
+    # Insert all items at once
+    response = supabase.table("pantry_items").insert(rows_to_insert).execute()
+
+    return response
+
+def delete_item_from_pantry(user_id: str, item_name: str):
+    """
+    Deletes all rows in pantry_items for a given user where item_name matches.
+    Returns the response from Supabase.
+    """
+    response = (
+        supabase
+        .table("pantry_items")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("item_name", item_name)
+        .execute()
+    )
+    return response
+
+
+
 # Auto-initialize when imported
 initialize_database()
