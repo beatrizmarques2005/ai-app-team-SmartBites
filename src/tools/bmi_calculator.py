@@ -84,4 +84,3 @@ def categorize_bmi(bmi: float) -> str:
     if bmi < 40:
         return "Obesity (Class II)"
     return "Obesity (Class III)"
-    
