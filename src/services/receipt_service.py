@@ -12,6 +12,7 @@ It's domain-specific - knows about receipts.
 from langfuse import observe
 from .ai_service import AIService
 from .document_service import DocumentService
+from ..db.supabase_adapter import SupabaseAdapter
 
 class ReceiptService:
     """Service for analyzing supermarket receipts."""
@@ -56,6 +57,49 @@ class ReceiptService:
                 item["unit_price"] = item["total_price"]
 
         return data
+
+    @observe()
+    def process_and_store_receipt(self, file_bytes: bytes, mime_type: str, user_id: str) -> dict:
+        """Analyze receipt, persist to Supabase and update pantry/shopping list.
+
+        Args:
+            file_bytes: receipt file bytes
+            mime_type: mime type
+            user_id: id of the user performing upload
+
+        Returns:
+            persisted receipt row returned by Supabase (dict) or the analysis dict on error
+        """
+        # Run extraction first
+        data = self.analyze_receipt(file_bytes, mime_type=mime_type)
+
+        adapter = SupabaseAdapter()
+
+        # Persist receipt
+        receipt_row = adapter.insert_receipt(user_id, data)
+        receipt_id = receipt_row.get("id") if receipt_row else None
+
+        # Update pantry and shopping list for each item
+        for item in data.get("items", []):
+            name = item.get("name")
+            if not name:
+                continue
+            quantity = item.get("quantity") or 1
+            unit = item.get("unit") if item.get("unit") else None
+            normalized = adapter._normalize_name(name)
+
+            try:
+                adapter.upsert_pantry_item(user_id, name, normalized, quantity, unit, source_receipt_id=receipt_id)
+            except Exception:
+                # best-effort: continue
+                pass
+
+            try:
+                adapter.remove_shopping_list_item_if_present(user_id, normalized, quantity)
+            except Exception:
+                pass
+
+        return receipt_row or data
 
     @observe()
     def answer_question(self, question: str, receipt_data: dict) -> str:
