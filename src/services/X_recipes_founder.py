@@ -1,4 +1,11 @@
-# no idea yet
+"""
+Experimental/legacy Recipe Finder
+
+Status: EXPERIMENTAL / optional. This module is an older prototype for
+finding recipes on the web. The project now uses `src/services/recipe_generator.py`
+and `src/services/recipe_service.py`. Keep this file for reference but it is
+not required for the core NOTES.md flows.
+"""
 import logging
 import os
 import requests

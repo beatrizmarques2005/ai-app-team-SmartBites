@@ -1,3 +1,7 @@
+-- Migration: Initial schema for SmartBites (Supabase/Postgres)
+-- Create core tables expected by the adapter and services
+
+-- Note: Uses gen_random_uuid() (pgcrypto). If unavailable, replace with uuid_generate_v4().
 
 -- Users table
 create table if not exists public.users (

@@ -10,7 +10,7 @@ This file expects `calls/supabase_config.supabase` to provide a configured clien
 """
 from typing import Optional, Dict, Any
 from datetime import datetime
-from calls.supabase_config import supabase
+from src.db.client import supabase
 
 
 class SupabaseAdapter:

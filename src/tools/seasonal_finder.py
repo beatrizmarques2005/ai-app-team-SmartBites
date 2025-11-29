@@ -1,3 +1,13 @@
+"""
+Seasonal finder tool
+
+Status: OPTIONAL for MVP.
+Reason: Enhances recipe suggestions by seasonality but not required for core features.
+"""
+ 
+def seasonal_finder(recipes: List[Dict[str, Any]], season: str) -> List[Dict[str, Any]]:
+    """Find recipes suitable for a given season."""
+    # existing code
 import json
 import logging
 from datetime import datetime, date

@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from langfuse import observe
 import openai
+from src.tools.inventory import InventoryTool
 
 logger = logging.getLogger(__name__)
 

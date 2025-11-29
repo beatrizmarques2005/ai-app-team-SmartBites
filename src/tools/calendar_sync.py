@@ -1,3 +1,11 @@
+"""
+Calendar sync tool
+
+Status: OPTIONAL for MVP.
+Reason: Synchronizing meal plans to external calendars is a nice-to-have feature
+and can be added after core flows (receipt parsing, pantry, meal planning) are stable.
+"""
+
 from datetime import datetime, timedelta
 from ics import Calendar, Event
 from pathlib import Path

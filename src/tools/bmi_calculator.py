@@ -1,9 +1,15 @@
 """
 BMI Calculator Tool
--------------------
 
 Purpose: Calculate BMI.
 
+"""
+"""
+BMI Calculator (tool)
+
+Status: OPTIONAL for MVP.
+Reason: Useful as a convenience feature for profile analytics, but not required
+for core receipt/pantry/meal planning functionality described in NOTES.md.
 """
 
 import math

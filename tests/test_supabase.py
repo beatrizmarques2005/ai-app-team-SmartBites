@@ -1,10 +1,13 @@
-"""Quick script to test SupabaseAdapter connectivity.
+r"""Quick script to test SupabaseAdapter connectivity.
 
 Set `SUPABASE_URL` and `SUPABASE_KEY` in your `.env` before running.
 
-How to run?
-project-env\Scripts\activate
-python .\scripts\test_supabase.py
+How to run (PowerShell):
+1. Activate your virtualenv (PowerShell):
+   project-env\Scripts\Activate.ps1
+   or from cmd: project-env\Scripts\activate
+2. Run the test script:
+   python .\scripts\test_supabase.py
 
 """
 

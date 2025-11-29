@@ -1,3 +1,11 @@
+"""
+Inventory helper tool
+
+Status: RELEVANT for MVP.
+Reason: Provides helper functions for listing and formatting pantry data.
+"""
+
+
 class InventoryTool:
     """Domain tool for managing kitchen inventory."""
 
