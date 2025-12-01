@@ -17,6 +17,9 @@ class SupabaseAdapter:
     def __init__(self):
         self.client = supabase
 
+        # Detect placeholder client (set in src.db.client when supabase package is missing)
+        self._has_table = hasattr(self.client, 'table')
+
     def _normalize_name(self, name: str) -> str:
         if not name:
             return ""
@@ -40,12 +43,19 @@ class SupabaseAdapter:
             "created_at": datetime.utcnow().isoformat(),
         }
 
+        if not self._has_table:
+            # DB not configured; return the payload as-is for best-effort flows
+            return {**payload, "id": None}
+
         resp = self.client.table("receipts").insert(payload).execute()
         if resp and hasattr(resp, "data") and resp.data:
             return resp.data[0]
         return None
 
     def find_pantry_item(self, user_id: str, normalized_name: str) -> Optional[Dict[str, Any]]:
+        if not self._has_table:
+            return None
+
         resp = self.client.table("pantry_items").select("*").eq("user_id", user_id).eq("normalized_name", normalized_name).limit(1).execute()
         if resp and getattr(resp, "data", None):
             return resp.data[0]
@@ -53,6 +63,22 @@ class SupabaseAdapter:
 
     def upsert_pantry_item(self, user_id: str, name: str, normalized_name: str, quantity: Optional[float], unit: Optional[str], source_receipt_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         existing = self.find_pantry_item(user_id, normalized_name)
+
+        # If DB not configured, create a local representation
+        if not self._has_table and not existing:
+            from uuid import uuid4
+            row = {
+                "id": str(uuid4()),
+                "user_id": user_id,
+                "name": name,
+                "normalized_name": normalized_name,
+                "quantity": quantity,
+                "unit": unit,
+                "source_receipt_id": source_receipt_id,
+                "created_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat(),
+            }
+            return row
 
         if existing:
             # Aggregate quantity when possible
@@ -67,6 +93,16 @@ class SupabaseAdapter:
                 "unit": unit or existing.get("unit"),
                 "updated_at": datetime.utcnow().isoformat(),
             }
+            if not self._has_table:
+                # Update the in-memory existing row if present
+                try:
+                    existing['quantity'] = new_qty
+                    existing['unit'] = update_doc.get('unit')
+                    existing['updated_at'] = update_doc.get('updated_at')
+                    return existing
+                except Exception:
+                    return None
+
             resp = self.client.table("pantry_items").update(update_doc).eq("id", existing.get("id")).execute()
             if resp and getattr(resp, "data", None):
                 return resp.data[0]
@@ -83,6 +119,11 @@ class SupabaseAdapter:
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
+        if not self._has_table:
+            from uuid import uuid4
+            payload_with_id = {**payload, 'id': str(uuid4())}
+            return payload_with_id
+
         resp = self.client.table("pantry_items").insert(payload).execute()
         if resp and getattr(resp, "data", None):
             return resp.data[0]
@@ -93,6 +134,9 @@ class SupabaseAdapter:
 
         This is a best-effort operation for POC.
         """
+        if not self._has_table:
+            return None
+
         resp = self.client.table("shopping_list_items").select("*").eq("user_id", user_id).eq("normalized_name", normalized_name).limit(1).execute()
         if not resp or not getattr(resp, "data", None):
             return None

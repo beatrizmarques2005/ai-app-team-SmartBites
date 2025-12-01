@@ -6,8 +6,13 @@ from ..utils.unit_conversion import convert_to_base, to_pretty
 
 
 class PantryService:
-    def __init__(self):
-        self.adapter = SupabaseAdapter()
+    def __init__(self, adapter: Optional[SupabaseAdapter] = None):
+        """PantryService manages pantry items.
+
+        Args:
+            adapter: Optional SupabaseAdapter or mock for testing. If None, a real adapter is created.
+        """
+        self.adapter = adapter or SupabaseAdapter()
 
     def list_items(self, user_id: str) -> List[Dict[str, Any]]:
         try:

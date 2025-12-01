@@ -74,3 +74,35 @@ create table if not exists public.shopping_list_items (
 );
 
 create index if not exists idx_shopping_user_normalized on public.shopping_list_items (user_id, normalized_name);
+
+-- Recipes table
+create table if not exists public.recipes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete set null,
+  title text,
+  ingredients jsonb,
+  instructions text,
+  link text,
+  favorite boolean default false,
+  prep_time_minutes integer,
+  servings integer,
+  cuisine_type text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_recipes_user on public.recipes (user_id);
+
+-- Meal plans table
+create table if not exists public.meal_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete cascade,
+  start_date date,
+  end_date date,
+  metadata jsonb,
+  slots jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_mealplans_user on public.meal_plans (user_id);

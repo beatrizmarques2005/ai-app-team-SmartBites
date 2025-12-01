@@ -9,8 +9,8 @@ from ..db.supabase_adapter import SupabaseAdapter
 
 
 class MealPlanService:
-    def __init__(self):
-        self.adapter = SupabaseAdapter()
+    def __init__(self, adapter: Optional[SupabaseAdapter] = None):
+        self.adapter = adapter or SupabaseAdapter()
 
     def propose_plan(self, ingredients: List[str], preferences: Dict[str, Any]) -> List[Dict[str, Any]]:
         return generate_meal_plan(ingredients, preferences)
@@ -26,6 +26,10 @@ class MealPlanService:
             "metadata": metadata or {},
             "slots": plan,
         }
+        # If adapter is a fallback (no DB present), just return the payload for demo purposes
+        if not getattr(self.adapter, '_has_table', False):
+            return payload
+
         resp = self.adapter.client.table('meal_plans').insert(payload).execute()
         if getattr(resp, 'data', None):
             return resp.data[0]

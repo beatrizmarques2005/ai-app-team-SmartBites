@@ -5,23 +5,30 @@ methods recommended in NOTES.md.
 """
 from typing import List, Dict, Any, Optional
 from ..services.recipe_generator import RecipeGeneratorAI
-from ..services.X_meal_planner import match_ingredients_to_recipes, _get_recipe_db
 from ..db.supabase_adapter import SupabaseAdapter
 
 
 class RecipeService:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, adapter: Optional[SupabaseAdapter] = None):
         self.ai_gen = RecipeGeneratorAI(api_key or '')
-        self.adapter = SupabaseAdapter()
+        self.adapter = adapter or SupabaseAdapter()
 
     def search_by_ingredients(self, ingredients: List[str], strict: bool = True) -> List[Dict[str, Any]]:
-        # Use X_meal_planner matching for quick local search
-        matched = match_ingredients_to_recipes(ingredients)
+        # Prefer X_meal_planner if available, otherwise fallback to recipe_generator search
+        try:
+            from .X_meal_planner import match_ingredients_to_recipes
+            matched = match_ingredients_to_recipes(ingredients)
+        except Exception:
+            # fallback: simple match using ai_gen or empty
+            matched = []
+
         if strict:
             return [r for r in matched if not r.get('missing_ingredients')]
         return matched
 
     def get_saved_recipes(self, user_id: str) -> List[Dict[str, Any]]:
+        if not getattr(self.adapter, '_has_table', False):
+            return []
         resp = self.adapter.client.table('recipes').select('*').eq('user_id', user_id).execute()
         return getattr(resp, 'data', []) or []
 

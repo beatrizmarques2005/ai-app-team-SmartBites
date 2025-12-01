@@ -9,6 +9,7 @@ This service orchestrates:
 It's domain-specific - knows about receipts.
 """
 
+from typing import Optional
 from langfuse import observe
 from .ai_service import AIService
 from .document_service import DocumentService
@@ -17,7 +18,7 @@ from ..db.supabase_adapter import SupabaseAdapter
 class ReceiptService:
     """Service for analyzing supermarket receipts."""
 
-    def __init__(self, model: str = "gemini-2.5-flash-lite"):
+    def __init__(self, model: str = "gemini-2.5-flash-lite", adapter: Optional[SupabaseAdapter] = None):
         """Initialize receipt service with dependencies.
 
         Args:
@@ -25,6 +26,7 @@ class ReceiptService:
         """
         self.ai_service = AIService(model=model)
         self.doc_service = DocumentService()
+        self.adapter = adapter or SupabaseAdapter()
 
     @observe()
     def analyze_receipt(self, file_bytes: bytes, mime_type: str = "application/pdf") -> dict:
@@ -73,10 +75,13 @@ class ReceiptService:
         # Run extraction first
         data = self.analyze_receipt(file_bytes, mime_type=mime_type)
 
-        adapter = SupabaseAdapter()
-
-        # Persist receipt
-        receipt_row = adapter.insert_receipt(user_id, data)
+        # Persist receipt using injected adapter
+        receipt_row = None
+        try:
+            receipt_row = self.adapter.insert_receipt(user_id, data)
+        except Exception:
+            # fallback: continue with analysis result
+            receipt_row = None
         receipt_id = receipt_row.get("id") if receipt_row else None
 
         # Update pantry and shopping list for each item
@@ -89,13 +94,13 @@ class ReceiptService:
             normalized = adapter._normalize_name(name)
 
             try:
-                adapter.upsert_pantry_item(user_id, name, normalized, quantity, unit, source_receipt_id=receipt_id)
+                self.adapter.upsert_pantry_item(user_id, name, normalized, quantity, unit, source_receipt_id=receipt_id)
             except Exception:
                 # best-effort: continue
                 pass
 
             try:
-                adapter.remove_shopping_list_item_if_present(user_id, normalized, quantity)
+                self.adapter.remove_shopping_list_item_if_present(user_id, normalized, quantity)
             except Exception:
                 pass
 
