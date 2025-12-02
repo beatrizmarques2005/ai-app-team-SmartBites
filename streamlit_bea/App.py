@@ -221,8 +221,19 @@ st.sidebar.header('Demo Settings')
 use_live = st.sidebar.checkbox('Connect to Supabase (live DB)', value=False, help='When enabled the demo will attempt to use configured Supabase services; leave off to use safe local mocks.')
 
 if use_live:
-    svc = PantryService() if PantryService else MockPantryService()
-    shopping_svc = ShoppingListService() if ShoppingListService else MockShoppingListService()
+    # If the demo is set to use live DB but no real user has logged in (we're
+    # still using the `demo-user` placeholder), avoid sending that placeholder
+    # to Supabase (Postgres user_id is a UUID) — fall back to the mock for
+    # user-scoped services. When a real UUID is supplied via Login, the live
+    # services will be used.
+    current_user = st.session_state.get('user_id', 'demo-user')
+    if current_user == 'demo-user':
+        svc = MockPantryService()
+        shopping_svc = MockShoppingListService()
+    else:
+        svc = PantryService() if PantryService else MockPantryService()
+        shopping_svc = ShoppingListService() if ShoppingListService else MockShoppingListService()
+
     mealplan_svc = MealPlanService() if MealPlanService else MockMealPlanService()
     recipe_svc = RecipeService() if RecipeService else MockRecipeService()
     receipt_svc = ReceiptService() if ReceiptService else MockReceiptService()

@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from typing import List, Optional
 from bs4 import BeautifulSoup
@@ -6,18 +7,41 @@ from langfuse import observe
 
 
 class RecipeScraper:
-    """Unified recipe crawler + scraper.
-
-    Methods:
-    - fetch_html(url)
-    - collect_links(sources)
-    - scrape(url)
-    - search_recipes(query, sources=None)
-    """
+    """Unified recipe crawler + scraper."""
 
     def __init__(self, ai_service):
         self.ai = ai_service
-        self.default_sources = os.getenv("RECIPE_SOURCES", "").split(",") if os.getenv("RECIPE_SOURCES") else []
+        # Prefer RECIPES_SOURCES (new name), then RECIPES_SOURCE, then RECIPE_SOURCES
+        sources_env = os.getenv("RECIPES_SOURCES") or os.getenv("RECIPES_SOURCE") or os.getenv("RECIPE_SOURCES")
+
+        # If not present in the process environment, try to read the project's .env file
+        # to support array-style entries like RECIPES_SOURCES=( ... ) that some dotenv
+        # loaders don't parse into os.environ.
+        if not sources_env:
+            try:
+                from pathlib import Path
+                repo_root = Path(__file__).resolve().parents[2]
+                env_path = repo_root / '.env'
+                if env_path.exists():
+                    text = env_path.read_text(encoding='utf-8')
+                    # Try to find a RECIPES_SOURCES=... line or a RECIPES_SOURCES(...) block
+                    m = re.search(r'RECIPES_SOURCES\s*=\s*\(([^)]*)\)', text, re.IGNORECASE | re.DOTALL)
+                    if m:
+                        sources_env = m.group(1)
+                    else:
+                        m2 = re.search(r'RECIPES_SOURCES\s*=\s*(.+)', text)
+                        if m2:
+                            sources_env = m2.group(1)
+            except Exception:
+                sources_env = None
+
+        if sources_env:
+            # Extract URLs from a variety of possible formats (comma-separated, newline-separated,
+            # quoted, or a bash-style array). Use a regex to robustly find https? URLs.
+            found = re.findall(r"https?://[^\s\",)']+", sources_env)
+            self.default_sources = found
+        else:
+            self.default_sources = []
 
     @observe()
     def fetch_html(self, url: str) -> Optional[str]:
@@ -30,7 +54,7 @@ class RecipeScraper:
 
     @observe()
     def collect_links(self, sources: Optional[List[str]] = None) -> List[str]:
-        """Collect recipe links from the provided sources (or env RECIPE_SOURCES)."""
+        """Collect recipe links from the provided sources (or env RECIPES_SOURCE / RECIPE_SOURCES)."""
         srcs = sources or self.default_sources
         links: List[str] = []
         for base in srcs:

@@ -146,7 +146,33 @@ class AIService:
     @observe()
     def get_recipe_links(self) -> list[str]:
         """Collect recipe links from configured RECIPE_SOURCES environment variable."""
-        sources = os.getenv("RECIPE_SOURCES", "").split(",") if os.getenv("RECIPE_SOURCES") else []
+        # Prefer RECIPES_SOURCES (new name), then RECIPES_SOURCE, then RECIPE_SOURCES
+        sources_env = os.getenv("RECIPES_SOURCES") or os.getenv("RECIPES_SOURCE") or os.getenv("RECIPE_SOURCES")
+
+        if not sources_env:
+            # fallback: try reading .env in repository root for array-style values
+            try:
+                from pathlib import Path
+                import re
+                repo_root = Path(__file__).resolve().parents[2]
+                env_path = repo_root / '.env'
+                if env_path.exists():
+                    text = env_path.read_text(encoding='utf-8')
+                    m = re.search(r'RECIPES_SOURCES\s*=\s*\(([^)]*)\)', text, re.IGNORECASE | re.DOTALL)
+                    if m:
+                        sources_env = m.group(1)
+                    else:
+                        m2 = re.search(r'RECIPES_SOURCES\s*=\s*(.+)', text)
+                        if m2:
+                            sources_env = m2.group(1)
+            except Exception:
+                sources_env = None
+
+        if sources_env:
+            import re
+            sources = re.findall(r"https?://[^\s\",)']+", sources_env)
+        else:
+            sources = []
         urls = []
         for site in sources:
             try:
@@ -356,3 +382,44 @@ class AIService:
         except json.JSONDecodeError:
             return "Error: Unable to parse recipe JSON from model response."
 
+    @observe()
+    def cooking_advice(self, question: str, *, recipe: Optional[dict] = None, ingredients: Optional[list] = None, context: Optional[dict] = None) -> str:
+        """Unified cooking helper.
+
+        Usage patterns:
+        - If `recipe` is provided, the question is interpreted as a question about that recipe and
+          routed to `ask_recipe_question`.
+        - If `ingredients` is provided and the question asks for suggestions (flavouring, substitutions),
+          it routes to `suggestion` or `generate_recipe_from_ingredients` depending on the request.
+        - Otherwise falls back to a generic QA using `answer_question` with an optional `context`.
+
+        Returns a text answer (string). If a structured response is expected (e.g., recipe JSON), callers
+        should call the more specific methods directly (`generate_recipe_from_ingredients`, `generate_recipe`, etc.).
+        """
+
+        # Prefer recipe-specific questions
+        if recipe:
+            resp = self.ask_recipe_question(recipe, question)
+            return resp or "I couldn't find an answer about that recipe."
+
+        # If ingredients are provided and the question mentions 'suggest' or 'substitute', offer suggestions
+        if ingredients:
+            q_lower = question.lower()
+            if any(k in q_lower for k in ["suggest", "pair", "enhance", "flavor", "flavour"]):
+                suggestions = self.suggestion(ingredients)
+                if suggestions:
+                    return "; ".join(suggestions)
+                return "I couldn't generate suggestions for those ingredients."
+
+            if any(k in q_lower for k in ["make", "recipe", "cook", "create"]):
+                # attempt to produce a recipe JSON and return a brief summary
+                recipe_json = self.generate_recipe_from_ingredients(ingredients)
+                if isinstance(recipe_json, dict):
+                    title = recipe_json.get("title", "Untitled recipe")
+                    servings = recipe_json.get("servings")
+                    return f"Generated recipe: {title}" + (f" ({servings} servings)" if servings else "")
+                return "I couldn't generate a recipe from those ingredients."
+
+        # Fallback to generic QA with any provided context
+        ctx = context or {}
+        return self.answer_question(question, ctx)

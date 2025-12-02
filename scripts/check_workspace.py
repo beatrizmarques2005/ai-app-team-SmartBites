@@ -41,8 +41,8 @@ for path in SRC.rglob('*.py'):
 
 print('\nEnvironment variable checks:')
 vars_to_check = [
-    'DATABASE_URL', 'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY',
-    'OPENAI_API_KEY', 'GOOGLE_API_KEY'
+    'SUPABASE_URL', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY',
+    'GOOGLE_API_KEY'
 ]
 for v in vars_to_check:
     print(f"- {v}: {'SET' if os.environ.get(v) else 'MISSING'}")

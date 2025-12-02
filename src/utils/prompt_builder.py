@@ -4,6 +4,7 @@ These functions assemble prompt text following conventions described in
 `docs/NOTES.md`. They are intentionally lightweight and deterministic so
 unit tests can validate prompt structure without calling external LLMs.
 """
+
 from typing import List, Dict, Any
 
 
@@ -19,7 +20,6 @@ def build_receipt_processing_prompt(file_desc: str = "receipt image", user_note:
         parts.append(f"User note: {user_note}")
     return "\n".join(parts)
 
-
 def build_mealplan_prompt(pantry_snapshot: List[str], days: int = 7, people: int = 2, meals_per_day: int = 3, diet: str | None = None) -> str:
     parts = [
         "You are SmartBites assistant. Given a pantry (list of ingredients with quantities and units), user constraints (diet, allergies), and requested date range + meals per day, propose recipes for each meal slot.",
@@ -32,7 +32,6 @@ def build_mealplan_prompt(pantry_snapshot: List[str], days: int = 7, people: int
         parts.insert(1, f"Diet constraint: {diet}")
     return "\n".join(parts)
 
-
 def build_add_ingredients_prompt(items: List[Dict[str, Any]]) -> str:
     parts = ["Add these ingredients to pantry. Normalize names and units."]
     for it in items:
@@ -42,7 +41,6 @@ def build_add_ingredients_prompt(items: List[Dict[str, Any]]) -> str:
         parts.append(f"- {name} | qty: {qty} | unit: {unit}")
     parts.append("If fields missing, mark as pending and ask the user for clarification.")
     return "\n".join(parts)
-
 
 def build_modify_meal_plan_prompt(day: str, meal_slot: str, reason: str | None = None) -> str:
     parts = [
@@ -54,7 +52,6 @@ def build_modify_meal_plan_prompt(day: str, meal_slot: str, reason: str | None =
         parts.append(f"User reason: {reason}")
     return "\n".join(parts)
 
-
 def build_ate_item_prompt(item_name: str, quantity: float | None = None, when: str | None = None) -> str:
     q = f"User: I ate {quantity or 'some'} of {item_name}"
     if when:
@@ -62,14 +59,12 @@ def build_ate_item_prompt(item_name: str, quantity: float | None = None, when: s
     parts = [q, "Process: Deduct quantity from pantry, if negative prompt user to restock, and if it affects planned meals propose replacements."]
     return "\n".join(parts)
 
-
 def build_shopping_list_prompt(action: str, item: str, quantity: Any = None) -> str:
     parts = [f"Action: {action}", f"Item: {item}"]
     if quantity is not None:
         parts.append(f"Quantity: {quantity}")
     parts.append("Process: CRUD operations on shopping_list; group by section when returning view.")
     return "\n".join(parts)
-
 
 def build_cooking_helper_prompt(question: str, context: Dict[str, Any] | None = None) -> str:
     parts = [

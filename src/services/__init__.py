@@ -14,13 +14,7 @@ from .ai_service import AIService
 from .document_service import DocumentService
 from .receipt_service import ReceiptService
 from .ingredient_service import IngredientService
-from .recipe_generator import RecipeGeneratorAI
 from .user_service import UserService
-# from .recipe_crawler import (  # remote/local crawler
-#     # _get_recipe_db,
-#     match_ingredients_to_recipes,
-#     generate_meal_plan,
-# )
 from .recipe_scraper import RecipeScraper
 from .pantry_service import PantryService
 from .shopping_list_service import ShoppingListService
@@ -33,7 +27,6 @@ __all__ = [
     'ReceiptService',
     'IngredientService',
     'UserService',
-    'RecipeGeneratorAI',
     'RecipeScraper',
     'PantryService',
     'ShoppingListService',

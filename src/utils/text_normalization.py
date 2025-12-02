@@ -2,7 +2,6 @@
 import re
 import unicodedata
 
-
 def normalize_text(text: str) -> str:
     """Normalize text for matching:
 
@@ -23,7 +22,6 @@ def normalize_text(text: str) -> str:
     # Collapse whitespace
     text = re.sub(r"\s+", ' ', text).strip()
     return text
-
 
 def normalize_and_tokenize(text: str):
     """Return normalized text and token list."""

@@ -1,4 +1,5 @@
 """Ingredient matching utilities: fuzzy matching and synonym support."""
+
 from difflib import get_close_matches
 from typing import List, Optional
 from .text_normalization import normalize_text
@@ -20,7 +21,6 @@ def expand_synonyms(name: str) -> List[str]:
             synonyms.append(nk)
     return list(dict.fromkeys(synonyms))
 
-
 def fuzzy_match(name: str, candidates: List[str], n: int = 3, cutoff: float = 0.6) -> List[str]:
     """Return a list of candidate matches for `name` using difflib."""
     if not name:
@@ -36,7 +36,6 @@ def fuzzy_match(name: str, candidates: List[str], n: int = 3, cutoff: float = 0.
                 result.append(orig)
                 break
     return result
-
 
 def best_match(name: str, candidates: List[str]) -> Optional[str]:
     matches = fuzzy_match(name, candidates, n=1, cutoff=0.5)
