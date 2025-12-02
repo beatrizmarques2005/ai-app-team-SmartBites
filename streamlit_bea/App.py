@@ -1,3 +1,18 @@
+import streamlit as st
+
+if hasattr(st, "set_page_config"):
+    st.set_page_config(page_title='SmartBites Demo (Bea)')
+
+st.title('SmartBites — Bea Demo')
+st.write('This workspace includes a simple multipage Streamlit demo. Use the left sidebar (Pages) to navigate:')
+
+st.markdown('- Chatbot\n- Pantry\n- Shopping List\n- Meal Planner\n- Receipts\n- Recipes\n- Profile')
+
+st.markdown('Run the demo with:')
+
+st.code('streamlit run streamlit_bea/app.py', language='bash')
+
+st.info('If you prefer to run the original single-file demo, run `streamlit run streamlit_bea/App.py`.')
 import sys
 from pathlib import Path
 import json
@@ -12,7 +27,8 @@ from types import SimpleNamespace
 from src.utils.text_normalization import normalize_text
 
 
-st.set_page_config(page_title='SmartBites - Bea Demo')
+if hasattr(st, "set_page_config"):
+    st.set_page_config(page_title='SmartBites - Bea Demo')
 
 st.title('SmartBites — Mini Demo (Bea)')
 
@@ -140,7 +156,7 @@ class MockMealPlanService:
 
     def propose_plan(self, ingredients, preferences):
         # very small wrapper around X_meal_planner if available
-        m = safe_import('src.services.X_meal_planner', 'generate_meal_plan')
+        m = safe_import('src.tools.meal_planner', 'generate_meal_plan')
         if m:
             return m(ingredients, preferences)
         # fallback: create simple 3-day dinner-only plan using pantry ingredients
@@ -151,7 +167,7 @@ class MockMealPlanService:
         return plan
 
     def get_schedule_and_shopping(self, plan):
-        s = safe_import('src.services.X_meal_planner', 'schedule_meals')
+        s = safe_import('src.tools.meal_planner', 'schedule_meals')
         if s:
             return s(plan)
         # simple aggregation
@@ -166,7 +182,7 @@ class MockRecipeService:
 
     def search_by_ingredients(self, ingredients, strict=True):
         # local quick match
-        m = safe_import('src.services.X_meal_planner', 'match_ingredients_to_recipes')
+        m = safe_import('src.tools.meal_planner', 'match_ingredients_to_recipes')
         if m:
             return m(ingredients)
         return [{'name': 'Simple Stir Fry', 'ingredients': ingredients, 'match_score': 1.0, 'missing_ingredients': []}]
@@ -463,8 +479,13 @@ def render_chatbot():
             # create context from last receipt or pantry snapshot
             ctx = st.session_state.get('last_receipt', {}) or {'pantry': svc.list_items(st.session_state.get('user_id', 'demo-user'))}
             try:
-                if hasattr(receipt_svc, 'answer_question'):
-                    ans = receipt_svc.answer_question(question, ctx)
+                # Use centralized AIService QA when available
+                if hasattr(receipt_svc, 'ai_service') and hasattr(receipt_svc.ai_service, 'answer_question'):
+                    system_instruction = "You are a helpful assistant analyzing supermarket receipts. Answer questions based on the provided receipt data. If information is not present, say so."
+                    try:
+                        ans = receipt_svc.ai_service.answer_question(question, ctx, system_instruction=system_instruction)
+                    except Exception as e:
+                        ans = f'Error from assistant: {e}'
                 else:
                     ans = 'Demo assistant: I can answer simple receipt and pantry questions in this demo.'
             except Exception as e:

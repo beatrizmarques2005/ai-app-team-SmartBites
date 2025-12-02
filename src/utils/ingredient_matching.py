@@ -3,14 +3,6 @@ from difflib import get_close_matches
 from typing import List, Optional
 from .text_normalization import normalize_text
 
-
-_SYNONYMS = {
-    'bell pepper': ['capsicum', 'pepper'],
-    'courgette': ['zucchini'],
-    'chickpeas': ['garbanzo', 'garbanzo beans'],
-}
-
-
 def expand_synonyms(name: str) -> List[str]:
     """Return possible synonyms for a name (including itself)."""
     name = normalize_text(name)
@@ -49,3 +41,4 @@ def fuzzy_match(name: str, candidates: List[str], n: int = 3, cutoff: float = 0.
 def best_match(name: str, candidates: List[str]) -> Optional[str]:
     matches = fuzzy_match(name, candidates, n=1, cutoff=0.5)
     return matches[0] if matches else None
+

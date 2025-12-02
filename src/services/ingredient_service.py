@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 from langfuse import observe
 
 class IngredientService:
@@ -9,9 +10,18 @@ class IngredientService:
         self.ai = ai_service
 
     @observe()
-    def check_missing(self, recipe):
+    def check_missing(self, recipe, user_id: Optional[str] = None):
         missing = []
-        inv = [i.lower() for i in self.inventory.get_ingredients_for_recipe()]
+        # Support inventory implementations that accept an optional user_id
+        try:
+            inv_list = self.inventory.get_ingredients_for_recipe()
+        except TypeError:
+            try:
+                inv_list = self.inventory.get_ingredients_for_recipe(user_id) if user_id else self.inventory.get_ingredients_for_recipe()
+            except Exception:
+                inv_list = []
+
+        inv = [i.lower() for i in (inv_list or [])]
 
         for ingredient in recipe.get("ingredients", []):
             name = ingredient.lower()

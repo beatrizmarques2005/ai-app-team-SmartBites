@@ -10,6 +10,8 @@ It's domain-specific - knows about receipts.
 """
 
 from typing import Optional
+import logging
+import filetype
 from langfuse import observe
 from .ai_service import AIService
 from .document_service import DocumentService
@@ -18,18 +20,24 @@ from ..db.supabase_adapter import SupabaseAdapter
 class ReceiptService:
     """Service for analyzing supermarket receipts."""
 
-    def __init__(self, model: str = "gemini-2.5-flash-lite", adapter: Optional[SupabaseAdapter] = None):
+    def __init__(
+            self, 
+            model: str = "gemini-2.5-flash-lite", 
+            adapter: Optional[SupabaseAdapter] = None
+            ):
+        
         """Initialize receipt service with dependencies.
 
         Args:
             model: Gemini model to use
         """
-        self.ai_service = AIService(model=model)
+        # Pass model as model_name to AIService (AIService signature is api_key, model_name...)
+        self.ai_service = AIService(model_name=model)
         self.doc_service = DocumentService()
         self.adapter = adapter or SupabaseAdapter()
 
     @observe()
-    def analyze_receipt(self, file_bytes: bytes, mime_type: str = "application/pdf") -> dict:
+    def analyze_receipt(self, file_bytes: bytes, mime_type: str = None) -> dict:
         """Complete receipt analysis pipeline.
 
         Args:
@@ -79,7 +87,8 @@ class ReceiptService:
         receipt_row = None
         try:
             receipt_row = self.adapter.insert_receipt(user_id, data)
-        except Exception:
+        except Exception as e:
+            logging.exception("Failed to insert receipt: %s", e)
             # fallback: continue with analysis result
             receipt_row = None
         receipt_id = receipt_row.get("id") if receipt_row else None
@@ -91,41 +100,19 @@ class ReceiptService:
                 continue
             quantity = item.get("quantity") or 1
             unit = item.get("unit") if item.get("unit") else None
-            normalized = adapter._normalize_name(name)
+            normalized = self.adapter._normalize_name(name)
 
             try:
                 self.adapter.upsert_pantry_item(user_id, name, normalized, quantity, unit, source_receipt_id=receipt_id)
-            except Exception:
-                # best-effort: continue
-                pass
+            except Exception as e:
+                logging.exception("Failed to upsert pantry item: %s", e)
 
             try:
                 self.adapter.remove_shopping_list_item_if_present(user_id, normalized, quantity)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.exception("Failed to remove shopping list item: %s", e)
 
         return receipt_row or data
-
-    @observe()
-    def answer_question(self, question: str, receipt_data: dict) -> str:
-        """Answer question about a receipt.
-
-        Args:
-            question: User's question
-            receipt_data: Receipt data for context
-
-        Returns:
-            AI's answer
-        """
-        system_instruction = """You are a helpful assistant analyzing supermarket receipts.
-                                Answer questions based on the provided receipt data.
-                                If information is not present, say so."""
-
-        return self.ai_service.chat_with_context(
-            question,
-            receipt_data,
-            system_instruction
-        )
 
     @observe()
     def _get_receipt_schema(self) -> dict:

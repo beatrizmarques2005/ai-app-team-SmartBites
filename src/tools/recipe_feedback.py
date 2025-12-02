@@ -7,15 +7,13 @@ from typing import Optional, List, Dict, Any
 logger = logging.getLogger(__name__)
 
 class RecipeFeedback:
-    """Tool for managing and analyzing recipe feedback."""
+    """Tool for managing and analyzing recipe feedback.
+
+    Status: OPTIONAL for MVP.
+    Reason: Helps collect user recipe ratings; useful but not required for initial flows.
+    """
 
     def __init__(self, persist_file: Optional[str] = None):
-"""
-Recipe feedback tool
-
-Status: OPTIONAL for MVP.
-Reason: Helps collect user recipe ratings; useful but not required for initial flows.
-"""
         """
         Args:
             persist_file: Optional path to JSON file for persistence.

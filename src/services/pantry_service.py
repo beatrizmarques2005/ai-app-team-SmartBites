@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from ..db.supabase_adapter import SupabaseAdapter
 from ..utils.text_normalization import normalize_text
 from ..utils.unit_conversion import convert_to_base, to_pretty
+from ..tools.date_calculator import get_food_status
 
 
 class PantryService:
@@ -46,3 +47,59 @@ class PantryService:
         row['pretty_quantity'] = pretty_qty
         row['pretty_unit'] = pretty_unit
         return row
+
+    def expiry_check(self, user_id: str) -> Dict[str, dict]:
+        """Return a mapping of normalized item name -> item data merged with expiry info.
+
+        Uses `open_date` (DD-MM-YYYY) and `shelf_life` (days) fields when available.
+        If those fields are missing the item will be included with status 'Unknown'.
+        """
+        items = self.list_items(user_id)
+        status = {}
+        for row in items:
+            try:
+                qty = row.get('quantity') or 0
+            except Exception:
+                qty = 0
+            if qty <= 0:
+                continue
+
+            name = row.get('normalized_name') or normalize_text(row.get('name', ''))
+            open_date = row.get('open_date')
+            shelf_life = row.get('shelf_life')
+
+            if not open_date or not shelf_life:
+                expiry = {
+                    'open_date': open_date,
+                    'expire_date': None,
+                    'days_remaining': 9999,
+                    'status': 'Unknown'
+                }
+            else:
+                try:
+                    expiry = get_food_status(open_date, int(shelf_life))
+                except Exception:
+                    expiry = {
+                        'open_date': open_date,
+                        'expire_date': None,
+                        'days_remaining': 9999,
+                        'status': 'Unknown'
+                    }
+
+            status[name] = {**row, **expiry}
+
+        return status
+
+    def get_ingredients_for_recipe(self, user_id: str, prioritize_expiring: bool = True) -> List[str]:
+        """Return a list of ingredient names suitable for recipe generation.
+
+        Items are sorted by `days_remaining` when `prioritize_expiring` is True.
+        Expired items are filtered out.
+        """
+        items = self.expiry_check(user_id)
+        sorted_items = sorted(
+            items.items(),
+            key=lambda x: x[1].get('days_remaining', 9999) if prioritize_expiring else 0
+        )
+
+        return [name for name, data in sorted_items if data.get('status') != 'Expired' and (data.get('quantity') or 0) > 0]

@@ -1,38 +1,47 @@
-"""
-AI Service - Handles all Gemini API interactions
 
+"""
+AI Service - Consolidated AI helpers for the application
+
+This file merges extraction, recipe generation, recipe QA and flavor-suggestion
+helpers into a single service to avoid scattering AI logic across multiple files.
 """
 
 import os
 import json
 import tempfile
 import re
-import pathlib
+from typing import Optional, Any
 
 import google.generativeai as genai
 from google.generativeai.types import GenerationConfig
 from dotenv import load_dotenv
 from langfuse import observe
+import requests
+from bs4 import BeautifulSoup
 
 load_dotenv()
-
-model = str(os.getenv("MODEL"))
-temperature = float(os.getenv("TEMPERATURE"))
 
 class AIService:
     """Service for all AI/LLM operations."""
 
-    def __init__(self, model: str = model):
+    def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None, temperature: Optional[float] = None):
         """Initialize AI service.
 
         Args:
-            model: Gemini model to use
+            api_key: Optional API key for the generative API. If omitted, `GOOGLE_API_KEY` env var is used.
+            model_name: Optional model name. If omitted, `MODEL` env var is used.
+            temperature: Optional temperature (float). If omitted, `TEMPERATURE` env var or 0.7 is used.
         """
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-        self.model = genai.GenerativeModel(model_name=model)
+        genai.configure(api_key=api_key or os.getenv("GOOGLE_API_KEY"))
+        model_env = model_name or os.getenv("MODEL") or "gemini-1.5"
+        self.model = genai.GenerativeModel(model_name=model_env)
+        try:
+            self.temperature = float(temperature if temperature is not None else os.getenv("TEMPERATURE", 0.7))
+        except Exception:
+            self.temperature = 0.7
 
     @observe()
-    def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str = 'application/pdf') -> dict:
+    def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str = "application/pdf") -> dict:
         prompt = self._build_extraction_prompt(schema)
 
         # Write bytes to a temporary file
@@ -47,14 +56,11 @@ class AIService:
         # Generate content with Gemini
         response = self.model.generate_content(
             contents=[prompt, file_part],
-            generation_config=GenerationConfig(
-                response_mime_type='application/json',
-                temperature=temperature,
-            )
+            generation_config=GenerationConfig(response_mime_type="application/json", temperature=self.temperature),
         )
 
         # Check for empty or invalid response
-        if not response.text or response.text.strip() == "":
+        if not getattr(response, "text", None) or response.text.strip() == "":
             raise ValueError("Gemini returned an empty response. The file may be unclear or the schema too strict.")
 
         raw_text = response.text.strip()
@@ -69,55 +75,25 @@ class AIService:
             raise ValueError(f"Gemini returned invalid JSON: {raw_text}") from e
 
     @observe()
-    def chat_with_context(
-        self,
-        question: str,
-        context: dict,
-        system_instruction: str = None
-    ) -> str:
+    def chat_with_context(self, question: str, context: dict, system_instruction: Optional[str] = None) -> str:
         """Chat with AI about specific context."""
         if system_instruction is None:
             system_instruction = "You are a helpful AI assistant analyzing data."
 
-        # Start the chat
         chat = self.model.start_chat()
-
-        # Send system instruction and context as the first message
-        chat.send_message(f"""{system_instruction}
-                                Context data:
-                                {json.dumps(context, indent=2)}""")
-
-        # Send the user's question
+        chat.send_message(f"""{system_instruction}\nContext data:\n{json.dumps(context, indent=2)}""")
         response = chat.send_message(question)
         return response.text
 
     @observe()
     def summarize(self, text: str, max_sentences: int = 3) -> str:
-        """Summarize text.
-
-        Args:
-            text: Text to summarize
-            max_sentences: Maximum sentences in summary
-
-        Returns:
-            Summary string
-        """
-        response = self.model.generate_content(
-            contents=f"Summarize this in {max_sentences} sentences or less:\n\n{text}"
-        )
-
+        """Summarize text."""
+        response = self.model.generate_content(contents=f"Summarize this in {max_sentences} sentences or less:\n\n{text}")
         return response.text
-    
+
     @observe()
     def _build_extraction_prompt(self, schema: dict) -> str:
-        """Build prompt for structured extraction.
-
-        Args:
-            schema: JSON schema
-
-        Returns:
-            Formatted prompt
-        """
+        """Build prompt for structured extraction."""
         return f"""Extract information from this document as JSON.
 
                 Schema (use these exact field names):
@@ -130,9 +106,10 @@ class AIService:
                 - Match the data types specified
 
                 JSON:"""
-    
+
     @observe()
-    def extract_recipe(self, html: str) -> dict:
+    def extract_recipe(self, html: str) -> Optional[dict]:
+        """Extract structured recipe from HTML using the model."""
         prompt = f"""
         Extract a structured cooking recipe from the HTML below. 
         Only return valid JSON.
@@ -149,22 +126,99 @@ class AIService:
 
         response = self.model.generate_content(
             contents=prompt,
-            generation_config=GenerationConfig(
-                temperature=self.temperature,
-                response_mime_type="application/json"
-            )
+            generation_config=GenerationConfig(temperature=self.temperature, response_mime_type="application/json"),
         )
 
-        if not response or not response.text:
+        if not response or not getattr(response, "text", None):
             return None
 
         try:
             return json.loads(response.text)
-        except:
+        except Exception:
             return None
 
     @observe()
-    def generate_recipe_from_ingredients(self, ingredients, servings=1, dietary=None):
+    def extract_recipe_from_html(self, html: str) -> Optional[dict]:
+        """Backward-compatible alias: extract a recipe from raw HTML using the model."""
+        # reuse extract_recipe implementation
+        return self.extract_recipe(html)
+
+    @observe()
+    def get_recipe_links(self) -> list[str]:
+        """Collect recipe links from configured RECIPE_SOURCES environment variable."""
+        sources = os.getenv("RECIPE_SOURCES", "").split(",") if os.getenv("RECIPE_SOURCES") else []
+        urls = []
+        for site in sources:
+            try:
+                html = requests.get(site, timeout=5).text
+            except requests.RequestException:
+                continue
+            soup = BeautifulSoup(html, "html.parser")
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if any(k in href for k in ["receita", "receitas", "recipe"]):
+                    if href.startswith("http"):
+                        urls.append(href)
+                    else:
+                        base = site.rstrip("/")
+                        urls.append(base + "/" + href.lstrip("/"))
+        return list(set(urls))
+
+    @observe()
+    def get_supermarket_recipes(self, max_recipes: int = 5) -> list[dict]:
+        """Fetch and extract recipes from known recipe sources."""
+        links = self.get_recipe_links()
+        collected = []
+        for link in links[:max_recipes]:
+            try:
+                html = requests.get(link, timeout=5).text
+                recipe = self.extract_recipe_from_html(html)
+                if recipe:
+                    collected.append({"url": link, **recipe})
+            except requests.RequestException:
+                continue
+        return collected
+
+    @observe()
+    def check_ingredients(self, recipe: dict, inventory_manager: Any) -> list[str]:
+        """Check which ingredients from `recipe` are missing in the inventory manager."""
+        try:
+            available = inventory_manager.get_ingredients_for_recipe()
+        except TypeError:
+            # maybe requires user_id signature; try without args
+            try:
+                available = inventory_manager.get_ingredients_for_recipe()
+            except Exception:
+                available = []
+
+        missing = []
+        for item in recipe.get("ingredients", []):
+            base = item.lower()
+            found = False
+            for inv in available:
+                if inv.lower() in base:
+                    found = True
+                    break
+            if not found:
+                missing.append(item)
+        return missing
+
+    @observe()
+    def get_possible_recipes(self, inventory_manager: Any) -> list[dict]:
+        """Return possible recipes from supermarket sources that match the inventory."""
+        supermarket_recipes = self.get_supermarket_recipes(max_recipes=10)
+        possible = []
+        for recipe in supermarket_recipes:
+            missing = self.check_ingredients(recipe, inventory_manager)
+            if len(missing) == 0:
+                possible.append(recipe)
+            else:
+                recipe["missing_ingredients"] = missing
+        return possible
+
+    @observe()
+    def generate_recipe_from_ingredients(self, ingredients: list[str], servings: int = 1, dietary: Optional[str] = None) -> Optional[dict]:
+        """Generate a cooking recipe from given ingredients."""
         prompt = f"""
         Create a detailed cooking recipe using ONLY these ingredients:
         {', '.join(ingredients)}
@@ -193,23 +247,20 @@ class AIService:
 
         response = self.model.generate_content(
             contents=prompt,
-            generation_config=GenerationConfig(
-                temperature=self.temperature,
-                response_mime_type="application/json"
-            )
+            generation_config=GenerationConfig(temperature=self.temperature, response_mime_type="application/json"),
         )
 
-        if not response or not response.text:
+        if not response or not getattr(response, "text", None):
             return None
 
         try:
             return json.loads(response.text)
-        except:
+        except Exception:
             return None
 
     @observe()
-    def ask_recipe_question(self, recipe: dict, question: str) -> str:
-        """Ask Gemini a question about a recipe."""
+    def ask_recipe_question(self, recipe: dict, question: str) -> Optional[str]:
+        """Ask the model a question about a recipe."""
         prompt = f"""
         You are a cooking assistant.
 
@@ -220,22 +271,88 @@ class AIService:
         {question}
         """
 
-        response = self.model.generate_content(
-            contents=prompt,
-            generation_config=GenerationConfig(
-                temperature=self.temperature
-            )
-        )
-
+        response = self.model.generate_content(contents=prompt, generation_config=GenerationConfig(temperature=self.temperature))
         return response.text if response else None
 
     @observe()
     def validate_recipe(self, data: dict) -> dict:
-        """Ensure recipe contains required fields."""
+        """Ensure recipe contains required fields and normalize common keys."""
         return {
             "title": data.get("title"),
             "ingredients": data.get("ingredients", []),
             "instructions": data.get("instructions", []),
             "estimated_time_minutes": data.get("estimated_time") or data.get("estimated_time_minutes")
         }
+
+    @observe()
+    def suggestion(self, ingredients: list[str]) -> list[str]:
+        """Suggest flavor enhancers (spices, herbs, condiments) for ingredients.
+
+        Returns a list of suggestion strings. Attempts to parse JSON array; falls back to comma-split.
+        """
+        prompt = f"""
+        You are a culinary AI assistant.
+        Suggest spices, herbs, juices, or condiments to enhance the flavor of these ingredients: {', '.join(ingredients)}.
+        Return the result as a JSON array of strings.
+        """
+        response = self.model.generate_content(contents=prompt, generation_config=GenerationConfig(temperature=self.temperature))
+        try:
+            return json.loads(response.text)
+        except Exception:
+            if not response or not getattr(response, "text", None):
+                return []
+            return [r.strip() for r in response.text.split(",") if r.strip()]
+
+    @observe()
+    def answer_question(self, question: str, context: dict, system_instruction: Optional[str] = None) -> str:
+        """Generic QA helper that answers a question given a context dictionary.
+
+        This centralizes AI-driven Q&A so callers (e.g., receipt flows, chat UI)
+        can use a single API surface.
+        """
+        if system_instruction is None:
+            system_instruction = "You are a helpful AI assistant analyzing provided context. Answer questions based only on the context; if information is missing, say so."
+        return self.chat_with_context(question, context, system_instruction)
+
+    @observe()
+    def generate_recipe(self, inventory_manager: Any, servings: int = 1, dietary: Optional[str] = None):
+        """Generate a recipe using an InventoryTool-like manager.
+
+        `inventory_manager` must implement `get_ingredients_for_recipe()`.
+        Returns a dict (parsed JSON) or an error string on failure.
+        """
+        try:
+            ingredients = inventory_manager.get_ingredients_for_recipe()
+        except Exception:
+            return "Error: inventory manager does not provide `get_ingredients_for_recipe()`"
+
+        if not ingredients:
+            return "No available ingredients to elaborate a recipe."
+
+        prompt = (
+            f"Create a detailed recipe using these ingredients: {', '.join(ingredients)}\n"
+            f"Prioritize ingredients that are close to their expiration date.\n"
+            f"Adjust quantities for {servings} serving(s).\n"
+        )
+
+        if dietary:
+            prompt += f"Make it suitable and safe for a {dietary} diet.\n"
+
+        prompt += (
+            "Return the recipe as JSON with keys: title, servings (int), ingredients (list of strings with quantities), "
+            "instructions (list of steps)."
+        )
+
+        response = self.model.generate_content(
+            contents=prompt,
+            generation_config=GenerationConfig(temperature=self.temperature, response_mime_type="application/json"),
+        )
+
+        if not response or not getattr(response, "text", None):
+            return "Error: empty response from model"
+
+        try:
+            return json.loads(response.text)
+        except json.JSONDecodeError:
+            return "Error: Unable to parse recipe JSON from model response."
 

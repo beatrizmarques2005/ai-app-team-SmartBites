@@ -4,19 +4,19 @@ This service wraps existing recipe generator/crawling logic and provides
 methods recommended in NOTES.md.
 """
 from typing import List, Dict, Any, Optional
-from ..services.recipe_generator import RecipeGeneratorAI
+from .ai_service import AIService
 from ..db.supabase_adapter import SupabaseAdapter
 
 
 class RecipeService:
     def __init__(self, api_key: Optional[str] = None, adapter: Optional[SupabaseAdapter] = None):
-        self.ai_gen = RecipeGeneratorAI(api_key or '')
+        self.ai_gen = AIService(api_key=api_key or '')
         self.adapter = adapter or SupabaseAdapter()
 
     def search_by_ingredients(self, ingredients: List[str], strict: bool = True) -> List[Dict[str, Any]]:
         # Prefer X_meal_planner if available, otherwise fallback to recipe_generator search
         try:
-            from .X_meal_planner import match_ingredients_to_recipes
+            from ..tools.meal_planner import match_ingredients_to_recipes
             matched = match_ingredients_to_recipes(ingredients)
         except Exception:
             # fallback: simple match using ai_gen or empty

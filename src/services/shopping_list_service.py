@@ -45,3 +45,29 @@ class ShoppingListService:
             return getattr(resp, 'status_code', None) in (200, 204) or (getattr(resp, 'data', None) is not None)
         except Exception:
             return False
+
+    # --- Shopping-list generation & formatting (merged from experimental tools) ---
+    def generate_from_plan(self, meal_plan: List[Dict[str, Any]], inventory: Optional[List[str]] = None) -> List[str]:
+        """Generate a simple shopping list from a meal plan by aggregating missing ingredients.
+
+        Args:
+            meal_plan: List of day entries where each day contains 'meals' and each meal can have 'missing_ingredients'.
+            inventory: Optional list of available ingredient names (not used by simple aggregator).
+
+        Returns:
+            Sorted list of unique missing ingredient names.
+        """
+        needed = []
+        for day in meal_plan:
+            for meal in day.get('meals', []):
+                for ing in meal.get('missing_ingredients', []):
+                    needed.append(ing)
+        # simple dedupe and sort
+        return sorted(list({i for i in needed if i}))
+
+    def format_shopping_list(self, items: List[str]) -> Dict[str, Any]:
+        """Format a shopping list for presentation or API responses.
+
+        Returns a dict with `items` and `count` keys to match legacy helpers.
+        """
+        return {"items": items, "count": len(items)}

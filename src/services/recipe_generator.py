@@ -1,3 +1,48 @@
+"""Shim for recipe generation.
+
+This file provides a lightweight `RecipeGeneratorAI` class so the package
+imports cleanly even when the full AI stack or external SDKs are not
+available. When an `AIService` instance exists it will delegate to it;
+otherwise it returns a simple placeholder response.
+"""
+from typing import Any, Dict
+
+try:
+    from .ai_service import AIService
+    _HAS_AI = True
+except Exception:
+    AIService = None
+    _HAS_AI = False
+
+
+class RecipeGeneratorAI:
+    def __init__(self, ai_service: AIService = None):
+        # prefer injected service; fall back to constructing one if available
+        self.ai = ai_service or (AIService() if _HAS_AI else None)
+
+    def generate(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """Generate a recipe from a prompt.
+
+        If a proper AIService is available we delegate; otherwise return a
+        deterministic placeholder suitable for demos and tests.
+        """
+        if self.ai and hasattr(self.ai, "generate_recipe"):
+            return self.ai.generate_recipe(prompt, **kwargs)
+
+        # Minimal deterministic fallback used in demo mode or tests that don't
+        # call external APIs.
+        return {
+            "title": "Sample Recipe",
+            "prompt": prompt,
+            "ingredients": [
+                {"name": "1 cup flour", "quantity": 1, "unit": "cup"},
+                {"name": "1 egg", "quantity": 1, "unit": "unit"},
+            ],
+            "instructions": "Mix ingredients and cook until done.",
+        }
+
+
+__all__ = ["RecipeGeneratorAI"]
 import os
 import json
 import logging
@@ -6,7 +51,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from langfuse import observe
 import openai
-from src.tools.inventory import InventoryTool
+from .pantry_service import PantryService
 
 logger = logging.getLogger(__name__)
 
@@ -18,136 +63,47 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+
 class RecipeGeneratorAI:
+    """Compatibility shim that delegates to `AIService`.
+
+    The legacy `RecipeGeneratorAI` implementation used OpenAI directly. The
+    functionality has been moved to `AIService`. This shim preserves the
+    previous public interface while delegating to the consolidated AIService.
+    """
+
     def __init__(self, api_key: str):
-        openai.api_key = api_key
-        self.recipe_sources = os.getenv("RECIPE_SOURCES", "").split(",")
+        # AIService will read API key from env or accept it; instantiate accordingly
+        from .ai_service import AIService
+
+        # prefer passing api_key through AIService constructor when supported
+        try:
+            self.ai = AIService(api_key=api_key)
+        except Exception:
+            self.ai = AIService()
 
     @observe()
-    def generate_recipe(self, inventory_manager: InventoryTool, servings=1, dietary=None):
+    def generate_recipe(self, inventory_manager, servings=1, dietary=None):
+        return self.ai.generate_recipe(inventory_manager, servings=servings, dietary=dietary)
 
-        ingredients = inventory_manager.get_ingredients_for_recipe()
-
-        if not ingredients:
-            return "No available ingredients to elaborate a recipe."
-             
-        prompt = (
-            f"Create a detailed recipe using these ingredients: {', '.join(ingredients)}"
-            f"Prioritize ingredients that are close to their expiration date."
-            f"Adjust quantities for {servings} serving(s)."
-        )
-
-        if dietary:
-            prompt += f"Make it suitable and safe for a {dietary} diet."
-
-        prompt += "Return the recipe as JSON with title, servings, ingredients with quantities, and steps as keys."
-        response = openai.ChatCompletion.create(
-            model = "2.5-flashlight",
-            messages=[{"role": "user", "content": prompt}],
-            temperature = 0.7
-        )
-
-        text_response = response.choices[0].message.content.strip()
-        try:
-            recipe = json.loads(text_response)
-        except json.JSONDecodeError:
-            return "Error: Unable to parse recipe response."
-        return recipe
-    
     @observe()
     def get_recipe_links(self):
-        urls = []
-        for site in self.recipe_sources:
-            try:
-                html = requests.get(site, timeout=5).text
-            except requests.RequestException as e:
-                logger.debug("Failed to fetch %s: %s", site, e)
-                continue
-            soup = BeautifulSoup(html, "html.parser")
-            for a in soup.find_all("a", href=True):
-                href = a["href"]
-                if "receita" in href or "receitas" in href or "recipe" in href:
-                    if href.startswith("http"):
-                        urls.append(href)
-                    else:
-                        # Normalize
-                        base = site.rstrip("/")
-                        urls.append(base + "/" + href.lstrip("/"))
-        return list(set(urls))
+        return self.ai.get_recipe_links()
 
-    @observe()   
+    @observe()
     def extract_recipe_from_html(self, html: str):
-        prompt = f"""
-        Extract a recipe from the following HTML.
-        Return ONLY valid JSON.
-        JSON fields:
-        - title (string)
-        - ingredients (list of strings)
-        - instructions (list of steps)
-        - estimated_time (int, minutes)
-        HTML:
-        {html}
-        """
-        response = openai.ChatCompletion.create(
-            model="2.5-flashlight",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
-        )
-        text = response.choices[0].message.content.strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as e:
-            logger.exception("Failed to parse extracted recipe JSON: %s", e)
-            return None
+        return self.ai.extract_recipe_from_html(html)
 
     @observe()
     def get_supermarket_recipes(self, max_recipes=5):
-        recipe_links = self.get_recipe_links()
-        collected = []
-
-        for link in recipe_links[:max_recipes]:
-            try:
-                html = requests.get(link, timeout=5).text
-                recipe = self.extract_recipe_from_html(html)
-                if recipe:
-                    collected.append({ "url": link, **recipe })
-            except requests.RequestException as e:
-                logger.debug("Failed to fetch recipe link %s: %s", link, e)
-                continue
-        
-        return collected
+        return self.ai.get_supermarket_recipes(max_recipes=max_recipes)
 
     @observe()
-    def check_ingredients(self, recipe, inventory_manager: InventoryTool):
-        available = inventory_manager.get_ingredients_for_recipe()
-        missing = []
-
-        for item in recipe["ingredients"]:
-            base = item.lower()
-            found = False
-
-            for inv in available:
-                if inv.lower() in base:
-                    found = True
-                    break
-            if not found:
-                missing.append(item)
-
-        return missing
+    def check_ingredients(self, recipe, inventory_manager: PantryService):
+        return self.ai.check_ingredients(recipe, inventory_manager)
 
     @observe()
-    def get_possible_recipes(self, inventory_manager: InventoryTool):
-        supermarket_recipes = self.get_supermarket_recipes(max_recipes=10)
-        possible = []
-
-        for recipe in supermarket_recipes:
-            missing = self.check_ingredients(recipe, inventory_manager)
-
-            if len(missing) == 0:
-                possible.append(recipe)
-            else:
-                recipe["missing_ingredients"] = missing
-
-        return possible
+    def get_possible_recipes(self, inventory_manager: PantryService):
+        return self.ai.get_possible_recipes(inventory_manager)
 
         
