@@ -1,5 +1,3 @@
-# template
-
 """
 Tracing Configuration - Langfuse setup
 
@@ -10,6 +8,7 @@ Call init_tracing() once at app startup.
 import os
 from dotenv import load_dotenv
 
+load_dotenv()
 
 def init_tracing():
     """Initialize Langfuse tracing.
@@ -24,7 +23,6 @@ def init_tracing():
 
     Once initialized, all @observe() decorators will work automatically.
     """
-    load_dotenv()
 
     # Check if Langfuse is configured
     required_keys = [
@@ -44,7 +42,6 @@ def init_tracing():
         print("✅ Langfuse tracing enabled")
         print(f"   Host: {os.getenv('LANGFUSE_HOST')}")
         return True
-
 
 def get_trace_url(trace_id: str) -> str:
     """Get URL to view a specific trace in Langfuse.

@@ -12,6 +12,12 @@ from langfuse import observe
 
 class DateCalculator:
     """Tool for date calculations in contracts."""
+    """
+    Date calculator utility
+
+    Status: OPTIONAL for MVP.
+    Reason: Helpful for advanced scheduling but not required for core flows.
+    """
 
     @observe()
     def days_until(self, target_date: str) -> int:
@@ -142,7 +148,7 @@ def get_food_status(open_date: str, shelf_life: int) -> dict:
     try:
         open_date = datetime.strptime(open_date, "%d-%m-%Y")
     except ValueError:
-        raise ValueError("open_date must be in "DD-MM-YYYY" format")
+        raise ValueError('open_date must be in "DD-MM-YYYY" format')
     
     if shelf_life <= 0:
         raise ValueError("shelf_life must be a positive integer")
@@ -160,8 +166,8 @@ def get_food_status(open_date: str, shelf_life: int) -> dict:
         status = "Fresh"
 
     return {
-        "open_date": open_date,
-        "expire_date": expire_date.date(),
+        "open_date": open_date.date().isoformat(),
+        "expire_date": expire_date.date().isoformat(),
         "days_remaining": remaining_nr_days,
         "status": status
     }

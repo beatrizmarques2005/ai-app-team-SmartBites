@@ -1,5 +1,3 @@
-# template
-
 """
 Configuration Management - Environment variables and settings
 
@@ -10,6 +8,7 @@ import os
 from dotenv import load_dotenv
 from typing import Dict, Any
 
+load_dotenv()
 
 def load_config() -> Dict[str, Any]:
     """Load application configuration from environment variables.
@@ -22,7 +21,6 @@ def load_config() -> Dict[str, Any]:
         >>> model = config.get("MODEL")
         >>> api_key = config.get("GOOGLE_API_KEY")
     """
-    load_dotenv()
 
     config = {
         # Google AI Configuration
@@ -44,7 +42,6 @@ def load_config() -> Dict[str, Any]:
         raise ValueError("GOOGLE_API_KEY not set in environment")
 
     return config
-
 
 def get_model_config() -> Dict[str, Any]:
     """Get model-specific configuration.

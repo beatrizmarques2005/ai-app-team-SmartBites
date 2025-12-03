@@ -9,25 +9,35 @@ This service orchestrates:
 It's domain-specific - knows about receipts.
 """
 
+from typing import Optional
+import logging
+import filetype
 from langfuse import observe
 from .ai_service import AIService
 from .document_service import DocumentService
-
+from ..db.supabase_adapter import SupabaseAdapter
 
 class ReceiptService:
     """Service for analyzing supermarket receipts."""
 
-    def __init__(self, model: str = "gemini-2.5-flash-lite"):
+    def __init__(
+            self, 
+            model: str = "gemini-2.5-flash-lite", 
+            adapter: Optional[SupabaseAdapter] = None
+            ):
+        
         """Initialize receipt service with dependencies.
 
         Args:
             model: Gemini model to use
         """
-        self.ai_service = AIService(model=model)
+        # Pass model as model_name to AIService (AIService signature is api_key, model_name...)
+        self.ai_service = AIService(model_name=model)
         self.doc_service = DocumentService()
+        self.adapter = adapter or SupabaseAdapter()
 
     @observe()
-    def analyze_receipt(self, file_bytes: bytes, mime_type: str = "application/pdf") -> dict:
+    def analyze_receipt(self, file_bytes: bytes, mime_type: str = None) -> dict:
         """Complete receipt analysis pipeline.
 
         Args:
@@ -59,26 +69,52 @@ class ReceiptService:
         return data
 
     @observe()
-    def answer_question(self, question: str, receipt_data: dict) -> str:
-        """Answer question about a receipt.
+    def process_and_store_receipt(self, file_bytes: bytes, mime_type: str, user_id: str) -> dict:
+        """Analyze receipt, persist to Supabase and update pantry/shopping list.
 
         Args:
-            question: User's question
-            receipt_data: Receipt data for context
+            file_bytes: receipt file bytes
+            mime_type: mime type
+            user_id: id of the user performing upload
 
         Returns:
-            AI's answer
+            persisted receipt row returned by Supabase (dict) or the analysis dict on error
         """
-        system_instruction = """You are a helpful assistant analyzing supermarket receipts.
-Answer questions based on the provided receipt data.
-If information is not present, say so."""
+        # Run extraction first
+        data = self.analyze_receipt(file_bytes, mime_type=mime_type)
 
-        return self.ai_service.chat_with_context(
-            question,
-            receipt_data,
-            system_instruction
-        )
+        # Persist receipt using injected adapter
+        receipt_row = None
+        try:
+            receipt_row = self.adapter.insert_receipt(user_id, data)
+        except Exception as e:
+            logging.exception("Failed to insert receipt: %s", e)
+            # fallback: continue with analysis result
+            receipt_row = None
+        receipt_id = receipt_row.get("id") if receipt_row else None
 
+        # Update pantry and shopping list for each item
+        for item in data.get("items", []):
+            name = item.get("name")
+            if not name:
+                continue
+            quantity = item.get("quantity") or 1
+            unit = item.get("unit") if item.get("unit") else None
+            normalized = self.adapter._normalize_name(name)
+
+            try:
+                self.adapter.upsert_pantry_item(user_id, name, normalized, quantity, unit, source_receipt_id=receipt_id)
+            except Exception as e:
+                logging.exception("Failed to upsert pantry item: %s", e)
+
+            try:
+                self.adapter.remove_shopping_list_item_if_present(user_id, normalized, quantity)
+            except Exception as e:
+                logging.exception("Failed to remove shopping list item: %s", e)
+
+        return receipt_row or data
+
+    @observe()
     def _get_receipt_schema(self) -> dict:
         """Define receipt extraction schema.
 
@@ -104,3 +140,4 @@ If information is not present, say so."""
             "total": "number or null",
             "payment_method": "string or null"
         }
+

@@ -9,8 +9,29 @@ Services orchestrate AI calls, tools, and business rules.
 """
 
 # from .contract_service import ContractService
-from .receipt_service import ReceiptService
+
 from .ai_service import AIService
 from .document_service import DocumentService
+from .receipt_service import ReceiptService
+from .ingredient_service import IngredientService
+from .user_service import UserService
+from .recipe_scraper import RecipeScraper
+from .pantry_service import PantryService
+from .shopping_list_service import ShoppingListService
+from .recipe_service import RecipeService
+from .mealplan_service import MealPlanService
 
-__all__ = ['ContractService', 'AIService', 'DocumentService']
+__all__ = [
+    'AIService',
+    'DocumentService',
+    'ReceiptService',
+    'IngredientService',
+    'UserService',
+    'RecipeScraper',
+    'PantryService',
+    'ShoppingListService',
+    'RecipeService',
+    'MealPlanService',
+    'match_ingredients_to_recipes',
+    'generate_meal_plan',
+]

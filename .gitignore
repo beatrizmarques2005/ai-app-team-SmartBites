@@ -151,6 +151,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venvmines/
+project_env/
+
 venv-tata/
 
 # Spyder project settings
