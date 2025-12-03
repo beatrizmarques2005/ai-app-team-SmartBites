@@ -1,5 +1,13 @@
 import streamlit as st
-from supabase_client import supabase
+from pathlib import Path
+import sys
+
+# Ensure project root is on sys.path so `src` imports work when Streamlit
+# runs files from the `streamlit_mariana` package directory.
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from src.services.auth_service import AuthService
 
 st.set_page_config(
     page_title="SmartBites | Login",
@@ -63,16 +71,28 @@ if st.session_state.mode == "login":
     if st.session_state.get("login_btn"):
         with st.spinner("Logging in..."):
             try:
-                auth = supabase.auth.sign_in_with_password({
-                    "email": st.session_state.email,
-                    "password": st.session_state.password
-                })
+                svc = AuthService()
+                resp = svc.login(st.session_state.email, st.session_state.password)
 
-                st.session_state.user_id = auth.user.id
-                st.success("✅ Login successful!")
-                st.switch_page("app.py")
+                # Support both dict-like and object responses from the client
+                user = None
+                if hasattr(resp, "user"):
+                    user = resp.user
+                elif isinstance(resp, dict):
+                    user = resp.get("user")
 
-                st.write("User ID:", auth.user.id)
+                user_id = None
+                if user is not None:
+                    # user may be an object with attribute `id` or a dict
+                    user_id = getattr(user, "id", None) or (user.get("id") if isinstance(user, dict) else None)
+
+                if user_id:
+                    st.session_state.user_id = user_id
+                    st.success("✅ Login successful!")
+                    st.switch_page("app.py")
+                    st.write("User ID:", user_id)
+                else:
+                    st.error("❌ Invalid email or password")
 
             except Exception:
                 st.error("❌ Invalid email or password")
@@ -85,10 +105,8 @@ if st.session_state.mode == "signup":
     if st.session_state.get("signup_btn"):
         with st.spinner("Creating account..."):
             try:
-                supabase.auth.sign_up({
-                    "email": st.session_state.email,
-                    "password": st.session_state.password
-                })
+                svc = AuthService()
+                svc.signup(st.session_state.email, st.session_state.password)
 
                 st.success("✅ Account created! You can now log in.")
 
