@@ -50,3 +50,34 @@ def initialize_database():
             from src.db.client import supabase
 
             __all__ = ["supabase"]
+
+
+
+# INSERTS IN THE TABLES
+def insert_receipt_into_pantry(user_id: str, receipt_json: dict):
+    """
+    Takes JSON from OCR-extracted receipt and inserts items into pantry_items table.
+    """
+
+    store_name = receipt_json.get("store_name")
+    purchase_date = receipt_json.get("purchase_date")
+    purchase_time = receipt_json.get("purchase_time")
+    items = receipt_json.get("items", [])
+
+    rows_to_insert = []
+
+    for item in items:
+        rows_to_insert.append({
+            "user_id": user_id,
+            "item_name": item.get("name"),
+            "quantity": item.get("quantity", 1),
+            "store_name": store_name,
+            "purchase_date": purchase_date,
+            "purchase_time": purchase_time,
+        })
+
+    # Insert all items at once
+    response = supabase.table("pantry_items").insert(rows_to_insert).execute()
+
+    return response
+
