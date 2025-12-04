@@ -1,5 +1,4 @@
 import streamlit as st
-from auth_.login import USER_CREDENTIALS  # share the same dict
 
 # def signup_page():
 #     st.title("Sign Up for Smart Bites")
