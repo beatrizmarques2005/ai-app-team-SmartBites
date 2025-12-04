@@ -4,7 +4,7 @@ import streamlit as st
 import sys
 import os
 
-from src.services.ai_service import AIService
+from src.services_old.ai_service import AIService
 
 # Page config
 st.set_page_config(
@@ -81,7 +81,7 @@ utils/
 """
 
 import streamlit as st
-from src.services.document_service import DocumentService
+from src.services_old.document_service import DocumentService
 from src.utils.tracing import init_tracing
 from src.utils.config import load_config
 

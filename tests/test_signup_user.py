@@ -1,4 +1,4 @@
-from src.services import auth_service
+from src.services_old import auth_service
 
 
 class FakeAuth:
@@ -31,7 +31,7 @@ def test_signup_creates_user(monkeypatch):
     # Patch the module-level `supabase` used by AuthService
     monkeypatch.setattr("src.services.auth_service.supabase", fake)
 
-    from src.services.auth_service import AuthService
+    from src.services_old.auth_service import AuthService
 
     svc = AuthService()
     resp = svc.signup("alice@example.com", "secret", username="alice")
