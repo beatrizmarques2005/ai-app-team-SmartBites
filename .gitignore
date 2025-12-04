@@ -154,6 +154,7 @@ venv.bak/
 venvmines/
 project_env/
 
+venv-tata/
 
 # Spyder project settings
 .spyderproject
@@ -226,3 +227,6 @@ secrets.py
 *.pyo
 
 *.exe
+
+# Streamlit
+.streamlit/
