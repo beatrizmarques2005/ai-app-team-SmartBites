@@ -21,6 +21,11 @@ import requests
 from bs4 import BeautifulSoup
 #from utils.prompts import PromptLoader
 
+
+# from src.tools.main import full_user_context
+from src.tools.ingredient_checker import IngredientChecker
+from src.tools.user_checker import UserChecker
+
 load_dotenv()
 
 class AIService:
@@ -75,26 +80,27 @@ class AIService:
         except requests.exceptions.RequestException as e:
             return f"Error fetching URL content: {e}"
 
-
-
-
-
-
-    def create_chat(self):
+    def create_chat(self, auth: AuthService):
         """Create a new chat session."""
+
+        ingredientchecker = IngredientChecker(auth)
+        userchecker = UserChecker(auth)
+
         return self.client.chats.create(
                     model=self.model,
                     config = {
                         'temperature': self.temperature,
                         'max_output_tokens': int(os.getenv("MAX_OUTPUT_TOKENS")),
                         'system_instruction': str(self.system_instruction), 
-                        'tools' : [self.fetch_url_content]
-
+                        'tools' : [self.fetch_url_content, 
+                                   ingredientchecker.available_ingredients,
+                                   userchecker.identify_user,
+                                   userchecker.preferences
+                                   ]
                     }, 
 
         )
         
-
     # def send_message(self, chat, message: str):
     #     """Send a message to an existing chat."""
     #     return chat.send_message(message)

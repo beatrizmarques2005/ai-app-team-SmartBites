@@ -4,6 +4,7 @@ from src.db.client import supabase
 class AuthService:
     def __init__(self):
         self.client = supabase
+        self.user = None
 
     def signup(self, email: str, password: str, username: str = None):
         """Register a new user using Supabase Auth."""
@@ -24,7 +25,11 @@ class AuthService:
             "email": email,
             "password": password
         })
+        self.user = resp.user
         return resp
+    
+    def get_user_id(self):
+        return self.user.id if self.user else None
 
     def logout(self):
         """Invalidate the current session."""
