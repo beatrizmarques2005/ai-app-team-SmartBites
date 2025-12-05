@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 # from src.tools.main import full_user_context
 from src.tools.ingredient_checker import IngredientChecker
 from src.tools.user_checker import UserChecker
+from src.services.auth_service import AuthService
 
 load_dotenv()
 

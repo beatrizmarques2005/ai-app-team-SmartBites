@@ -88,6 +88,7 @@ if st.session_state.mode == "login":
 
                 if user_id:
                     st.session_state.user_id = user_id
+                    st.session_state.auth = svc # Store the auth service in session state
                     st.success("✅ Login successful!")
                     st.switch_page("app.py")
                     st.write("User ID:", user_id)

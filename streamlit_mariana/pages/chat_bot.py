@@ -22,6 +22,10 @@ if project_root not in sys.path:
 # print(f"Added to path: {project_root}")
 
 from src.services.ai_service import AIService 
+from src.services.auth_service import AuthService
+
+if "auth" not in st.session_state:
+    st.session_state.auth = AuthService()
 
 load_dotenv()
 
@@ -45,8 +49,12 @@ if "ai" not in st.session_state:
     st.session_state.ai = AIService()
 
 if "chat" not in st.session_state:
-    auth = st.session_state.auth ####################
-    st.session_state.chat = st.session_state.ai.create_chat(auth=st.session_state.auth)
+    auth = st.session_state.auth
+    if auth.get_user_id() is not None:
+        st.session_state.chat = st.session_state.ai.create_chat(auth=auth)
+    else:
+        st.warning("User not logged in properly.")
+        st.stop()
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
