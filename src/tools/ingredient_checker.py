@@ -71,16 +71,16 @@ class IngredientChecker:
 
         parts = []
         for r in rows:
-            # try common field names for ingredient name and quantity
-            created_at, name, qty = r.get("created_at"), r.get("ingredient_name"), r.get("quantity")
+            name = r.get("ingredient_name", "Unknown")
+            qty = r.get("quantity")
+            created = r.get("created_at")
 
-            if name is not None:
-                name = str(name)
+            entry = name
+            if qty:
+                entry += f": {qty}"
+            if created:
+                entry += f" (added on {created})"
 
-            if qty is not None:
-                parts.append(f"{name}: {qty}")
-            
-            if created_at is not None:
-                parts.append(f"(added on {created_at})")
+            parts.append(entry)
 
         return ", ".join(parts)

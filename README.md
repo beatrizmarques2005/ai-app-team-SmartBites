@@ -94,41 +94,6 @@ Following the **NOVA IMS Capstone structure**, SmartBites was developed in three
 
 ---
 
-## 🔧 Architecture Overview
-
-The SmartBites system follows a **modular AI architecture**, ensuring clear separation between layers:
-
-```text
- ┌───────────────────────────────┐
- │         Streamlit UI          │
- │  (user input & visualization) │
- └──────────────┬────────────────┘
-                │
-                ▼
- ┌───────────────────────────────┐
- │     Service Layer (src/)      │
- │  - meal_service.py            │
- │  - nutrition_service.py       │
- │  Handles business logic       │
- └──────────────┬────────────────┘
-                │
-                ▼
- ┌───────────────────────────────┐
- │         AI Layer              │
- │   Gemini API + RAG (ChromaDB) │
- │   Natural language reasoning  │
- └──────────────┬────────────────┘
-                │
-                ▼
- ┌───────────────────────────────┐
- │     Tools & Utilities         │
- │  - Calorie calculators        │
- │  - Config & tracing           │
- └───────────────────────────────┘
-```
-
----
-
 ## ⚙️ How to Run *SmartBites*
 
 ### 1️⃣ Create and Activate the Virtual Environment

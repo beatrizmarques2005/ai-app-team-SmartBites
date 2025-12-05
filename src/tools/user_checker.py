@@ -73,14 +73,10 @@ class UserChecker:
                 except Exception:
                     name = str(r)
 
-            if name is not None:
-                parts.append(f"Name: {name}")
-            if gender is not None:
-                parts.append(f"Gender: {gender}")
-            if age is not None:
-                parts.append(f"Age: {age}")
+            if name is not None and gender is None and age is None:
+                parts.append(f"Name: {name}, Gender: {gender}, Age: {age}")
 
-        return ", ".join(parts)
+        return " | ".join(parts)
 
     def preferences(self) -> Optional[str]:
         """
@@ -135,13 +131,6 @@ class UserChecker:
             intolerances = r.get("intolerances")
             restrictions = r.get("restrictions")
             diet_type = r.get("diet_type")
-
-            if name is None:
-            # fallback: stringify the row if no identifiable name
-                try:
-                    name = json.dumps(r)
-                except Exception:
-                    name = str(r)
 
             if household_number is not None:
                 parts.append(f"Household Number: {household_number}")

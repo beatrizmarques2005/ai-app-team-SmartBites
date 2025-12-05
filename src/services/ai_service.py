@@ -4,26 +4,26 @@ AI Service - Consolidated AI helpers for the application
 This file merges extraction, recipe generation, recipe QA and flavor-suggestion
 helpers into a single service to avoid scattering AI logic across multiple files.
 """
-
-import os
+# from google.genai.types import Part
+# from google.genai.errors import APIError
+# from google.genai.types import GenerationConfig
+# from langfuse import observe
+import requests
+from bs4 import BeautifulSoup
+# from utils.prompts import PromptLoader
 # import json
 # import tempfile
 # import re
+
+# from src.tools.main import full_user_context
+
+import os
 from typing import Optional, Any
 
 import google.genai as genai
 from google.genai import types
-# from google.genai.types import Part
-# from google.genai.errors import APIError
-# from google.genai.types import GenerationConfig
 from dotenv import load_dotenv
-# from langfuse import observe
-# import requests
-# from bs4 import BeautifulSoup
-#from utils.prompts import PromptLoader
 
-
-# from src.tools.main import full_user_context
 from src.tools.ingredient_checker import IngredientChecker
 from src.tools.user_checker import UserChecker
 from src.services.auth_service import AuthService
@@ -56,80 +56,81 @@ class AIService:
         with open(file_path, "r", encoding="utf-8") as file:
             self.system_instruction = file.read()
 
-
     # --- Tool Definition (Function Calling) ---
-    # def fetch_url_content(self, url: str) -> str:
-    #     """
-    #     Fetches the plaintext content of a specific public URL.
-    #     Use this tool when the user provides a link and asks for a summary or details.
+    def fetch_url_content(self, url: str) -> str:
+        """
+        Fetches the plaintext content of a specific public URL.
+        Use this tool when the user provides a link and asks for a summary or details.
 
-    #     Args:
-    #         url: The complete URL (e.g., 'https://www.mysite.com/recipe') to fetch content from.
+        Args:
+            url: The complete URL (e.g., 'https://www.mysite.com/recipe') to fetch content from.
         
-    #     Returns:
-    #         The raw text content of the page, or a simple error message if inaccessible.
-    #     """
-    #     print(f"Executing Tool: fetch_url_content for {url}")
-    #     try:
-    #         # Simple request to fetch the content with a timeout
-    #         response = requests.get(url, timeout=10)
-    #         response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+        Returns:
+            The raw text content of the page, or a simple error message if inaccessible.
+        """
+        print(f"Executing Tool: fetch_url_content for {url}")
+        try:
+            # Simple request to fetch the content with a timeout
+            response = requests.get(url, timeout=10)
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             
-    #         # Use BeautifulSoup to get clean text from the HTML, which is better for the model
-    #         soup = BeautifulSoup(response.content, 'html.parser')
-    #         # Return a max of 4000 characters of clean text to avoid hitting context limits
-    #         return soup.get_text()[:4000]
-    #     except requests.exceptions.RequestException as e:
-    #         return f"Error fetching URL content: {e}"
+            # Use BeautifulSoup to get clean text from the HTML, which is better for the model
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Return a max of 4000 characters of clean text to avoid hitting context limits
+            return soup.get_text()[:4000]
+        except requests.exceptions.RequestException as e:
+            return f"Error fetching URL content: {e}"
 
+    def create_chat(self, auth: AuthService):
+        """Create a new chat session using Automatic Function Calling (AFC)."""
 
+        user_tools = UserChecker(auth)
+        ing_tools = IngredientChecker(auth)
 
+        builtin_tools = [
+            types.Tool(url_context=types.UrlContext()),
+            types.Tool(google_search=types.GoogleSearch()),
+        ]
 
-    def create_chat(self, auth : AuthService    ):
+        custom_tools = [
+            ing_tools.available_ingredients,
+            user_tools.identify_user,
+            user_tools.preferences,
+        ]
+
+        return self.client.chats.create(
+            model=self.model,
+            config=types.GenerateContentConfig(
+                temperature=self.temperature,
+                max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS")),
+                system_instruction=str(self.system_instruction),
+                tools=builtin_tools + custom_tools,
+            )
+        )
+
+    def create_chat(self, auth: AuthService):
         """Create a new chat session."""
-
         ingredientchecker = IngredientChecker(auth)
         userchecker = UserChecker(auth)
 
         return self.client.chats.create(
                     model=self.model,
-                    config = types.GenerateContentConfig(
-                        temperature=self.temperature,
-                        max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS")),
-                        system_instruction=str(self.system_instruction),
-                        tools = [
-                                    # Provide a name and the typed config object for URL context
-                                    types.Tool(url_context=types.UrlContext()),
-                                    # Google Search tool registration
-                                    types.Tool(google_search=types.GoogleSearch()), 
+                    config = {
+                        'temperature': self.temperature,
+                        'max_output_tokens': int(os.getenv("MAX_OUTPUT_TOKENS")),
+                        'system_instruction': str(self.system_instruction), 
+                        'tools' : [self.fetch_url_content, 
                                    ingredientchecker.available_ingredients,
                                    userchecker.identify_user,
                                    userchecker.preferences
-                                ]
-                                                )
+                                   ]
+                    }, 
 
         )
-        
 
     def send_message(self, chat, prompt: str):
         """Send a message to an existing chat."""
-        resp = chat.send_message(prompt)
-
-        # Debug: inspect candidate/parts to see if the model requested a tool call
-        try:
-            candidate = resp.candidates[0]
-            content = getattr(candidate, "content", None)
-            parts = getattr(content, "parts", []) if content else []
-
-            print("[AIService] candidate:", candidate)
-            for i, p in enumerate(parts):
-                print(f"[AIService] part[{i}].role:", getattr(p, "role", None))
-                print(f"[AIService] part[{i}].function_call:", getattr(p, "function_call", None))
-                print(f"[AIService] part[{i}].text:", getattr(p, "text", None))
-        except Exception as e:
-            print("[AIService] failed to inspect parts:", e)
-
-        return resp
+        return chat.send_message(prompt)
 
 
     # def send_message(self, chat, prompt: str):
@@ -183,3 +184,77 @@ class AIService:
     #         function_calls = get_function_calls(response)
 
     #     return response # The final text response
+
+
+'''    
+    def create_chat(self, auth : AuthService    ):
+        """Create a new chat session."""
+
+        ingredientchecker = IngredientChecker(auth)
+        userchecker = UserChecker(auth)
+
+        return self.client.chats.create(
+                    model=self.model,
+                    config = types.GenerateContentConfig(
+                        temperature=self.temperature,
+                        max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS")),
+                        system_instruction=str(self.system_instruction),
+                        tools = [
+                                    # Provide a name and the typed config object for URL context
+                                    types.Tool(url_context=types.UrlContext()),
+                                    # Google Search tool registration
+                                    types.Tool(google_search=types.GoogleSearch()), 
+                                   ingredientchecker.available_ingredients,
+                                   userchecker.identify_user,
+                                   userchecker.preferences
+                                ]
+                                                )
+
+        )
+
+
+        
+        ______
+        
+                            tools = [
+                                    # Provide a name and the typed config object for URL context
+                                    types.Tool(url_context=types.UrlContext()),
+                                    # Google Search tool registration
+                                    types.Tool(google_search=types.GoogleSearch()), 
+
+                                    types.Tool(
+                                        function_declarations=[
+                                            {
+                                                "name": "available_ingredients",
+                                                "description": "Return a summary of all pantry ingredients for the authenticated user.",
+                                                "parameters": {
+                                                    "type": "object",
+                                                    "properties": {},
+                                                    "required": []
+                                                }
+                                            },
+                                        {
+                                            "name": "identify_user",
+                                            "description": "Return the user's name, gender, age and basic profile.",
+                                            "parameters": {
+                                                "type": "object",
+                                                "properties": {},
+                                                "required": []
+                                            }
+                                        },
+                                        {
+                                            "name": "preferences",
+                                            "description": "Return the user's dietary preferences including allergies, intolerances, restrictions and diet type.",
+                                            "parameters": {
+                                            "type": "object",
+                                            "properties": {},
+                                            "required": []
+                                        }
+                                        }
+                                ]
+                            )
+                        ]
+
+                    )
+        )
+'''
