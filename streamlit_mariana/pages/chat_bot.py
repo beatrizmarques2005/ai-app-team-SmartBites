@@ -45,7 +45,8 @@ if "ai" not in st.session_state:
     st.session_state.ai = AIService()
 
 if "chat" not in st.session_state:
-    st.session_state.chat = st.session_state.ai.create_chat()
+    auth = st.session_state.auth ####################
+    st.session_state.chat = st.session_state.ai.create_chat(auth=st.session_state.auth)
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
