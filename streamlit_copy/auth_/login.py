@@ -1,19 +1,9 @@
+# C:\Users\wwwnj\...\streamlit_copy\auth_\login.py
+
 import streamlit as st
-# from pages import profile
-import sys
-import os
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-    
-from src.db.client import supabase
-
-
-def login_page():
+def login_page(supabase_client):
     st.title('Login to your Smart Bites Page!')
-
-    
 
     with st.form('login_form'):
         username = st.text_input('Username')
@@ -21,32 +11,37 @@ def login_page():
         submitted = st.form_submit_button('Login')
 
         if submitted:
-            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
-                st.session_state['logged_in'] = True
-                st.session_state['username'] = username
-                st.success('Logged in successfully')
-                st.rerun()
-            # resp = supabase.table('users').select('*').eq('username', username).limit(1).execute()
-            # user_rows = getattr(resp, "data", []) or []
+            if supabase_client is None:
+                st.error("Configuration Error: Database connection is not available.")
+                return
 
-            # if not user_rows:
-            #     st.error('Not registered')
-            # else:
-            #     user = user_rows[0]
-            #     stored_pw = user.get("password")
+            try:
+                # 1. Query the database for the user by username
+                resp = supabase_client.table("users").select("id, username, password").eq("username", username).limit(1).execute()
+                
+                if resp.error:
+                    st.error("Database query failed. Check console for RLS or config errors.")
+                    print(f"Supabase Query Error: {resp.error}")
+                    return
+                user_data = resp.data[0] if resp.data else None
+            
+            except Exception as e:
+                st.error("A critical database error occurred. Check your console output for details.")
+                print(f"CRITICAL Supabase Login Error: {e}")
+                return
 
-            #     if stored_pw == password:
-            #         st.session_state['logged_in'] = True
-            #         st.session_state['username'] = username
-            #         st.success('Logged in successfully')
-            #         st.rerun()
-            #     else:
-            #         st.error('Invalid credentials')
-
-    st.markdown('Don\'t have an account?')
-    if st.button('Sign Up', type = 'tertiary'):
-        st.session_state['show_signup'] = True
-        st.rerun()
-
-
-
+            # 2. Check if user exists and if the password matches
+            if user_data:
+                db_password = user_data.get("password")
+                
+                if db_password == password:
+                    # SUCCESS
+                    st.session_state['logged_in'] = True
+                    st.session_state['username'] = username
+                    st.session_state['user_id'] = user_data.get("id") 
+                    st.success('Logged in successfully')
+                    st.rerun()
+                else:
+                    st.error('Invalid username or password (Password Mismatch)')
+            else:
+                st.error('Invalid username or password (User Not Found)')

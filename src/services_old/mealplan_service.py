@@ -4,7 +4,7 @@ This service uses `X_meal_planner.generate_meal_plan` for proposal and
 persists plans to Supabase `meal_plans` table.
 """
 from typing import Dict, Any, List, Optional
-from ..tools.meal_planner import generate_meal_plan, schedule_meals
+from ..tools_old.meal_planner import generate_meal_plan, schedule_meals
 from ..db.supabase_adapter import SupabaseAdapter
 from .user_service import UserService
 

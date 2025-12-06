@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from ..db.supabase_adapter import SupabaseAdapter
 from ..utils.text_normalization import normalize_text
 from ..utils.unit_conversion import convert_to_base, to_pretty
-from ..tools.date_calculator import get_food_status
+from ..tools_old.date_calculator import get_food_status
 
 
 class PantryService:
