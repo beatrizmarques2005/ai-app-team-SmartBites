@@ -73,12 +73,13 @@ class IngredientChecker:
         for r in rows:
             name = r.get("ingredient_name", "Unknown")
             qty = r.get("quantity")
-            created = r.get("created_at")
+            created = r.get("purchase_date")
 
-            entry = name
-            if qty:
-                entry += f": {qty}"
+            entry = str(qty)
+            if name:
+                entry += f" {name}"
             if created:
+                created = created.split("T")[0]  # Just the date part
                 entry += f" (added on {created})"
 
             parts.append(entry)

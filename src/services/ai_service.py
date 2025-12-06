@@ -4,18 +4,8 @@ AI Service - Consolidated AI helpers for the application
 This file merges extraction, recipe generation, recipe QA and flavor-suggestion
 helpers into a single service to avoid scattering AI logic across multiple files.
 """
-# from google.genai.types import Part
-# from google.genai.errors import APIError
-# from google.genai.types import GenerationConfig
-# from langfuse import observe
 import requests
 from bs4 import BeautifulSoup
-# from utils.prompts import PromptLoader
-# import json
-# import tempfile
-# import re
-
-# from src.tools.main import full_user_context
 
 import os
 from typing import Optional, Any
@@ -26,6 +16,8 @@ from dotenv import load_dotenv
 
 from src.tools.ingredient_checker import IngredientChecker
 from src.tools.user_checker import UserChecker
+from src.tools.pantry_writer import PantryWriter
+from src.tools.recipe_writer import RecipeWriter
 from src.services.auth_service import AuthService
 
 load_dotenv()
@@ -71,7 +63,7 @@ class AIService:
         print(f"Executing Tool: fetch_url_content for {url}")
         try:
             # Simple request to fetch the content with a timeout
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=30)
             response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             
             # Use BeautifulSoup to get clean text from the HTML, which is better for the model
@@ -82,36 +74,11 @@ class AIService:
             return f"Error fetching URL content: {e}"
 
     def create_chat(self, auth: AuthService):
-        """Create a new chat session using Automatic Function Calling (AFC)."""
-
-        user_tools = UserChecker(auth)
-        ing_tools = IngredientChecker(auth)
-
-        builtin_tools = [
-            types.Tool(url_context=types.UrlContext()),
-            types.Tool(google_search=types.GoogleSearch()),
-        ]
-
-        custom_tools = [
-            ing_tools.available_ingredients,
-            user_tools.identify_user,
-            user_tools.preferences,
-        ]
-
-        return self.client.chats.create(
-            model=self.model,
-            config=types.GenerateContentConfig(
-                temperature=self.temperature,
-                max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS")),
-                system_instruction=str(self.system_instruction),
-                tools=builtin_tools + custom_tools,
-            )
-        )
-
-    def create_chat(self, auth: AuthService):
         """Create a new chat session."""
         ingredientchecker = IngredientChecker(auth)
         userchecker = UserChecker(auth)
+        pantrywriter = PantryWriter(auth)
+        recipe_writer = RecipeWriter(auth)
 
         return self.client.chats.create(
                     model=self.model,
@@ -122,139 +89,13 @@ class AIService:
                         'tools' : [self.fetch_url_content, 
                                    ingredientchecker.available_ingredients,
                                    userchecker.identify_user,
-                                   userchecker.preferences
+                                   userchecker.preferences,
+                                   pantrywriter.add_items,
+                                   recipe_writer.add_recipes
                                    ]
                     }, 
-
         )
 
     def send_message(self, chat, prompt: str):
         """Send a message to an existing chat."""
         return chat.send_message(prompt)
-
-
-    # def send_message(self, chat, prompt: str):
-    #     """Send a message to an existing chat, handling potential tool calls."""
-        
-    #     response = chat.send_message(prompt)
-        
-    #     # Helper function to extract tool calls from the response
-    #     def get_function_calls(res):
-    #         if res.candidates and res.candidates[0].content:
-    #             # Iterate through parts and find those that contain function calls
-    #             return [part.function_call for part in res.candidates[0].content.parts 
-    #                     if part.function_call]
-    #         return []
-
-    #     # 1. Loop until the model returns a final text response (i.e., no more tool calls)
-    #     function_calls = get_function_calls(response)
-        
-    #     # Check for function calls using the correct content structure
-    #     while function_calls:
-    #         tool_responses = []
-
-    #         for tool_call in function_calls:
-    #             # The model uses the function_call object directly here
-    #             function_name = tool_call.name
-    #             function_args = dict(tool_call.args)
-
-    #             # 2. Execute the specific tool function
-    #             if function_name == 'fetch_url_content':
-    #                 # Call the actual Python function with the model's arguments
-    #                 content = self.fetch_url_content(**function_args)
-                    
-    #                 # 3. Format the result to send back to the model
-    #                 tool_responses.append(Part.from_tool_response(
-    #                     name=function_name,
-    #                     response=content
-    #                 ))
-    #             else:
-    #                 # Handle unknown tool call (shouldn't happen with our setup)
-    #                 tool_responses.append(Part.from_tool_response(
-    #                     name=function_name,
-    #                     response=f"Error: Unknown tool {function_name}"
-    #                 ))
-                
-    #         # 4. Send the tool output back to the model with the role set to 'tool'
-    #         # FIX: Wrapping the parts in a Content object with the role set to 'tool'
-    #         tool_content = Content(role='tool', parts=tool_responses)
-    #         response = chat.send_message(contents=[tool_content])
-            
-    #         # Update the function_calls list for the next iteration
-    #         function_calls = get_function_calls(response)
-
-    #     return response # The final text response
-
-
-'''    
-    def create_chat(self, auth : AuthService    ):
-        """Create a new chat session."""
-
-        ingredientchecker = IngredientChecker(auth)
-        userchecker = UserChecker(auth)
-
-        return self.client.chats.create(
-                    model=self.model,
-                    config = types.GenerateContentConfig(
-                        temperature=self.temperature,
-                        max_output_tokens=int(os.getenv("MAX_OUTPUT_TOKENS")),
-                        system_instruction=str(self.system_instruction),
-                        tools = [
-                                    # Provide a name and the typed config object for URL context
-                                    types.Tool(url_context=types.UrlContext()),
-                                    # Google Search tool registration
-                                    types.Tool(google_search=types.GoogleSearch()), 
-                                   ingredientchecker.available_ingredients,
-                                   userchecker.identify_user,
-                                   userchecker.preferences
-                                ]
-                                                )
-
-        )
-
-
-        
-        ______
-        
-                            tools = [
-                                    # Provide a name and the typed config object for URL context
-                                    types.Tool(url_context=types.UrlContext()),
-                                    # Google Search tool registration
-                                    types.Tool(google_search=types.GoogleSearch()), 
-
-                                    types.Tool(
-                                        function_declarations=[
-                                            {
-                                                "name": "available_ingredients",
-                                                "description": "Return a summary of all pantry ingredients for the authenticated user.",
-                                                "parameters": {
-                                                    "type": "object",
-                                                    "properties": {},
-                                                    "required": []
-                                                }
-                                            },
-                                        {
-                                            "name": "identify_user",
-                                            "description": "Return the user's name, gender, age and basic profile.",
-                                            "parameters": {
-                                                "type": "object",
-                                                "properties": {},
-                                                "required": []
-                                            }
-                                        },
-                                        {
-                                            "name": "preferences",
-                                            "description": "Return the user's dietary preferences including allergies, intolerances, restrictions and diet type.",
-                                            "parameters": {
-                                            "type": "object",
-                                            "properties": {},
-                                            "required": []
-                                        }
-                                        }
-                                ]
-                            )
-                        ]
-
-                    )
-        )
-'''

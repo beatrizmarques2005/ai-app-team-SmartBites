@@ -11,7 +11,7 @@ class UserChecker:
 
     def __init__(self, auth: AuthService):
         self.user_id = auth.get_user_id()
-        self.users = supabase.table("users").select('*').eq('id', self.user_id).execute() if hasattr(supabase, "table") else None
+        self.users = supabase.table("users").select('*').eq('user_id', self.user_id).execute() if hasattr(supabase, "table") else None
 
     def identify_user(self) -> Optional[str]:
         """
