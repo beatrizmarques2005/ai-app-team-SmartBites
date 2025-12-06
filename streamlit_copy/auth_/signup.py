@@ -1,200 +1,154 @@
 import streamlit as st
+from pathlib import Path
+import sys
+import datetime
+from datetime import date
 
-# def signup_page():
-#     st.title("Sign Up for Smart Bites")
+# Ensure project root is on sys.path so `src` imports work when Streamlit
+# runs files from the `streamlit_mariana` package directory.
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 
-#     with st.form("signup_form"):
-#         new_username = st.text_input("Choose a username")
-#         new_password = st.text_input("Choose a password", type="password")
-#         confirm_password = st.text_input("Confirm password", type="password")
-
-#         submitted = st.form_submit_button("Sign Up")
-
-#         if submitted:
-#             if new_username in USER_CREDENTIALS:
-#                 st.error("Username already exists.")
-#             elif new_password != confirm_password:
-#                 st.error("Passwords do not match.")
-#             elif new_username == "" or new_password == "":
-#                 st.error("Please fill in all fields.")
-#             else:
-#                 # Add user to credentials
-#                 USER_CREDENTIALS[new_username] = new_password
-#                 st.success("Account created successfully! Please log in.")
-#                 st.session_state['logged_in'] = True
-#                 st.session_state['username'] = new_username
-#                 st.session_state['show_signup'] = False
-#                 st.rerun()
-
-
-
-def _init_signup_state():
-    """Ensure session state keys exist for the wizard."""
-    if "signup_step" not in st.session_state:
-        st.session_state.signup_step = 0
-    if "signup_data" not in st.session_state:
-        st.session_state.signup_data = {
-            "username": "",
-            "password": "",
-            "confirm": "",
-            "email": "",
-            # preferences
-            "dietary_preferences": [],
-            "allergies": "",
-            "restrictions": "",
-            "preferred_cuisines": [],
-            "default_servings": 1,
-            "dislikes": "",
-
-        }
+from src.services.auth_service import AuthService
+from src.db.client import supabase
 
 def signup_page():
-    _init_signup_state()
+    user_data = {
+        'user_id': None,
+        'full_name': '',
+        'birth_date': date(2000, 1, 1),
+        'gender': '',
+        'household_number': '',
+        'restrictions': [],
+        'diet_type': [],
+        'favourite_recipes': [],
+        'cuisine_type': []        
+        }
+    for key, default in user_data.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
+
+
+    if 'signup_step' not in st.session_state:
+        st.session_state.signup_step = 0
+
     step = st.session_state.signup_step
-    data = st.session_state.signup_data
+    total_steps = 3
+    st.progress(int((step / total_steps) * 100))
 
-    st.set_page_config(page_title="Sign Up", page_icon="📝", layout="wide")
-    st.title("Sign Up for Smart Bites")
-    st.write("Create an account — move through the steps to finish signup.")
+    svc = AuthService()
 
-    # Progress indicator
-    total_steps = 4
-    progress = int((step / total_steps) * 100)
-    st.progress(progress)
-
-
-
-    # STEP 0: Choose username
+    
+    # STEP 0 – Create account (email + password)
     if step == 0:
-        st.header("Step 1 — Choose a username")
-        with st.form(key="signup_step_0"):
-            username = st.text_input("Choose a username", value=data.get("username", ""))
-            next_clicked = st.form_submit_button("Next")
+        st.header("Step 1 — Create your account")
 
-            if next_clicked:
-                if username.strip() == "":
-                    st.error("Please enter a username.")
-                elif username in USER_CREDENTIALS:
-                    st.error("Username already exists.")
-                else:
-                    st.session_state.signup_data["username"] = username.strip()
-                    st.session_state.signup_step = 1
-                    st.rerun()
+        with st.form("step_0"):
+            # inputs
+            st.session_state.email = st.text_input('Email', value =  st.session_state.email, placeholder = 'you@example.com')
 
-    # STEP 1: Password
+            st.session_state.password = st.text_input('Password', value = st.session_state.password, type = 'password', placeholder = '••••••••')
+            create_button = st.form_submit_button("Create Account")
+
+            if create_button:
+                try:
+                    resp = svc.signup(st.session_state.email, st.session_state.password)
+
+                    error = getattr(resp, "error", None) or resp.get("error") if isinstance(resp, dict) else None
+                    if error:
+                        st.error(f"Signup failed: {error['message'] if isinstance(error, dict) else error}")
+                    else:
+                        user = getattr(resp, "user", None) or resp.get("user")
+                        if user:
+                            st.session_state.user_id = getattr(user, "id", None) or user.get("id")
+                            st.success("Account created successfully!")
+                            st.session_state.signup_step = 1
+                            st.rerun()
+                        else:
+                            st.error("Signup failed: no user returned from Supabase")
+
+                except Exception as e:
+                    st.error("❌ Error creating account")
+                    st.error(e)
+
+
+    # STEP 1 – Personal info
     elif step == 1:
-        st.header("Step 2 — Choose a password")
-        with st.form(key="signup_step_1"):
-            password = st.text_input("Choose a password", type="password", value=data.get("password", ""))
-            confirm = st.text_input("Confirm password", type="password", value=data.get("confirm", ""))
+        st.header("Step 2 — Personal information")
+        with st.form("step_1"):
+            st.session_state.full_name = st.text_input("Full name")
+            st.session_state.birth_date = st.date_input("Birth date", value= datetime.date(2000, 1, 1),  min_value=datetime.date(1920, 1, 1), max_value=datetime.date.today() )
+            st.session_state.gender = st.selectbox("Gender", options = ["Prefer not to say", "Female", "Male", "Other"], index = 0)
+            st.session_state.household_number = st.number_input("Number of people in household", min_value=1, value=1)
             next_clicked = st.form_submit_button("Next")
 
             if next_clicked:
-                if not password or not confirm:
-                    st.error("Please fill both password fields.")
-                elif password != confirm:
-                    st.error("Passwords do not match.")
-                else:
-                    st.session_state.signup_data["password"] = password
-                    st.session_state.signup_data["confirm"] = confirm
-                    st.session_state.signup_step = 2
-                    st.rerun()
-
-    # STEP 2: Profile / consent (proceed to preferences)
-    elif step == 2:
-        st.header("Step 3 — Profile and consent")
-        with st.form(key="signup_step_2"):
-            email = st.text_input("Email (optional)", value=data.get("email", ""))
-            next_clicked = st.form_submit_button("Next: Preferences")
-
-            if next_clicked:
-                st.session_state.signup_data["email"] = email
-                st.session_state.signup_step = 3
+                st.session_state.signup_step = 2
                 st.rerun()
 
-    # STEP 3: Preferences (diet, allergies, cuisines, servings)
-    elif step == 3:
-        st.header("Step 4 — Preferences")
-        with st.form(key="signup_step_3"):
-            diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
-            cuisine_options = ["Italian", "Mexican", "Indian", "Chinese", "Mediterranean", "American", "Portuguese", "Other"]
+    # STEP 3 – Preferences + INSERT into Supabase
+    elif step == 2:
+        st.header("Step 3 — Preferences")
 
-            dietary = st.multiselect("Dietary preferences (choose any)", options=diet_options, default=data.get("dietary_preferences", []))
-            allergies = st.text_input("Allergies (comma-separated)", value=data.get("allergies", ""))
-            restrictions = st.text_input("Dietary restrictions (comma-separated)", value=data.get("restrictions", ""))
-            cuisines = st.multiselect("Preferred cuisines", options=cuisine_options, default=data.get("preferred_cuisines", []))
-            servings = st.number_input("Default servings", min_value=1, max_value=10, value=data.get("default_servings", 1))
-            dislikes = st.text_input("Dislikes (comma-separated)", value=data.get("dislikes", ""))
+        diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
+        cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean",
+                        "American", "Portuguese", "Other"]
+        restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
-            create_clicked = st.form_submit_button("Create account")
+        with st.form("step_3"):
+            st.session_state.dietary = st.multiselect("Dietary preferences", diet_options, accept_new_options = True)
+            st.session_state.restrictions = st.multiselect("Restrictions (allergies, intolerances, dislikes)", restrictions_options, accept_new_options =True)
+            st.session_state.cuisines = st.multiselect("Preferred cuisines", cuisine_options, accept_new_options = True)
+        
+            create_clicked = st.form_submit_button("Create Account")
 
             if create_clicked:
-                # save preferences
-                st.session_state.signup_data["dietary_preferences"] = dietary
-                st.session_state.signup_data["allergies"] = allergies
-                st.session_state.signup_data["restrictions"] = restrictions
-                st.session_state.signup_data["preferred_cuisines"] = cuisines
-                st.session_state.signup_data["default_servings"] = int(servings)
-                st.session_state.signup_data["dislikes"] = dislikes
+                # --- INSERT MORE DATA INTO SUPABASE `users` TABLE ---
+                user_data['user_id'] = st.session_state.user_id
+                user_data['full_name'] = st.session_state.full_name
+                user_data['birth_date'] = st.session_state.birth_date.isoformat()
+                user_data['gender'] = st.session_state.gender
+                user_data['household_number'] = st.session_state.household_number
+                user_data['diet_type'] = st.session_state.dietary
+                user_data['restrictions'] = st.session_state.restrictions
+                user_data['cuisine_type'] = st.session_state.cuisines
+                try:
+                    
 
-                username = st.session_state.signup_data.get("username")
-                password = st.session_state.signup_data.get("password")
-                # Final sanity checks
-                if not username or not password:
-                    st.error("Missing username or password — please go back and complete the fields.")
-                else:
-                    # Create account (in-memory USER_CREDENTIALS dict for this demo)
-                    USER_CREDENTIALS[username] = password
+                    supabase.table("users").insert(user_data).execute()
 
-                    # Optionally attach profile to session (demo storage)
-                    st.session_state["user_profile"] = {
-                        "username": username,
-                        "email": st.session_state.signup_data.get("email"),
-                        "dietary_preferences": st.session_state.signup_data.get("dietary_preferences"),
-                        "allergies": st.session_state.signup_data.get("allergies"),
-                        "restrictions": st.session_state.signup_data.get("restrictions"),
-                        "preferred_cuisines": st.session_state.signup_data.get("preferred_cuisines"),
-                        "default_servings": st.session_state.signup_data.get("default_servings"),
-                        "dislikes": st.session_state.signup_data.get("dislikes"),
-                    }
+                     # --- SUCCESS ---
+                    st.success("🎉 Account created successfully!")
 
-                    # Mark logged in
-                    st.session_state["logged_in"] = True
-                    st.session_state["username"] = username
-                    # reset/clear wizard
-                    st.session_state.signup_step = 0
-                    st.session_state.signup_data = {
-                        "username": "",
-                        "password": "",
-                        "confirm": "",
-                        "email": "",
-                        "dietary_preferences": [],
-                        "allergies": "",
-                        "restrictions": "",
-                        "preferred_cuisines": [],
-                        "default_servings": 1,
-                        "dislikes": "",
-                    }
-
-                    st.success("Account created successfully! You are now logged in.")
+                    # reset state
+                    st.session_state['logged_in'] = True
+                    # st.session_state['user_id'] = st.session_state.user_id
                     st.rerun()
+                except Exception as e:
+                    st.error(f"Database insert failed: {e}")
+                    return
+
+               
+
+        # Navigation buttons
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col1:
+            if st.button("Back", type="tertiary") and step > 0:
+                st.session_state.signup_step = step - 1
+                st.rerun()
+
+        with col3:
+            if st.button("Cancel / Clear", type="tertiary"):
+                st.session_state.signup_step = 0
+                st.session_state.signup_data = {}
+                st.rerun()
 
 
-    # Back button (disabled on first step)
-    col1, col2, col3 = st.columns([1, 6, 1])
-    with col1:
-        if st.button("Back", type = 'tertiary') and step > 0:
-            st.session_state.signup_step = step - 1
-            st.rerun()
 
-    # Optionally add a cancel/clear button
-    with col3:
-        if st.button("Cancel / Clear", type = 'tertiary'):
-            st.session_state.signup_step = 0
-            st.session_state.signup_data = {
-                "username": "",
-                "password": "",
-                "confirm": "",
-                "email": "",
-            }
-            st.rerun()
+
+
+
+
+
+
+
