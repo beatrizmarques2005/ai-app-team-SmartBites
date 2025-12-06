@@ -1,47 +1,61 @@
 import streamlit as st
-# from pages import profile
+from pathlib import Path
 import sys
-import os
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-if project_root not in sys.path:
-    sys.path.append(project_root)
-    
-from src.db.client import supabase
+# Ensure project root is on sys.path so `src` imports work when Streamlit
+# runs files from the `streamlit_mariana` package directory.
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from src.services.auth_service import AuthService
 
 
 def login_page():
     st.title('Login to your Smart Bites Page!')
 
-    
+    # inputs
+    st.session_state.email = st.text_input('Email', value =  st.session_state.email, placeholder = 'you@example.com')
+
+    st.session_state.password = st.text_input('Password', value = st.session_state.password, type = 'password', placeholder = '••••••••')
+
+
 
     with st.form('login_form'):
-        username = st.text_input('Username')
-        password = st.text_input('Password', type='password')
         submitted = st.form_submit_button('Login')
 
         if submitted:
-            if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
-                st.session_state['logged_in'] = True
-                st.session_state['username'] = username
-                st.success('Logged in successfully')
-                st.rerun()
-            # resp = supabase.table('users').select('*').eq('username', username).limit(1).execute()
-            # user_rows = getattr(resp, "data", []) or []
+            try:
+                svc = AuthService()
+                resp = svc.login(st.session_state.email, st.session_state.password)
 
-            # if not user_rows:
-            #     st.error('Not registered')
-            # else:
-            #     user = user_rows[0]
-            #     stored_pw = user.get("password")
+                # Support both dict-like and object responses from the client
+                user = None
+                if hasattr(resp, "user"):
+                    user = resp.user
+                elif isinstance(resp, dict):
+                    user = resp.get("user")
 
-            #     if stored_pw == password:
-            #         st.session_state['logged_in'] = True
-            #         st.session_state['username'] = username
-            #         st.success('Logged in successfully')
-            #         st.rerun()
-            #     else:
-            #         st.error('Invalid credentials')
+                user_id = None
+                if user is not None:
+                    # user may be an object with attribute `id` or a dict
+                    user_id = getattr(user, "id", None) or (user.get("id") if isinstance(user, dict) else None)
+
+                if user_id:
+                    st.session_state.user_id = user_id
+                    st.session_state.auth = svc # Store the auth service in session state
+                    st.success("✅ Login successful!")
+                    # st.switch_page("app.py")
+                    # st.write("User ID:", user_id)
+                    st.session_state['logged_in'] = True
+                    st.rerun()
+
+                else:
+                    st.error("❌ Invalid email or password")
+
+            except Exception:
+                st.error("❌ Invalid email or password")
+
+
 
     st.markdown('Don\'t have an account?')
     if st.button('Sign Up', type = 'tertiary'):
