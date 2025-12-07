@@ -1,18 +1,26 @@
 """
 Receipt Parser
-This class performs:
+
+This service provides a unified workflow for handling supermarket receipts:
+
 - File validation (PDF, JPG, PNG, HEIC)
 - Text extraction (PDF or Image)
-- Structured receipt parsing using AI (schema defined inside)
-- Pantry DB updates + Shopping List cleanup
+- Structured receipt parsing using AI (schema defined internally)
+- Pantry database updates and Shopping List cleanup
 
 Dependencies (injected):
-- AIService
-- SupabaseAdapter
+- AIService: handles AI-based structured extraction
+- SupabaseAdapter: handles DB persistence and pantry/shopping list updates
+
+Key Features:
+- Automatic quantity normalization
+- Graceful handling of missing or partial data
+- Logging for audit and debugging
+- Langfuse observability for tracing
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
 from io import BytesIO
 
 import filetype
@@ -28,16 +36,15 @@ from ..db.supabase_adapter import SupabaseAdapter
 
 load_dotenv()
 
-class ReceiptParser:
-    """Unified service to parse supermarket receipts."""
 
-    def __init__(
-        self,
-    ):
-        # AI extractor
+class ReceiptParser:
+    """Unified service for parsing supermarket receipts and updating pantry/shopping list."""
+
+    def __init__(self):
+        # Initialize AI extractor with model from environment
         self.ai = AIService(model_name=os.getenv("MODEL"))
 
-        # DB adapter
+        # Initialize database adapter
         self.db = SupabaseAdapter()
 
     # ------------------------------------------------------------------ #
@@ -45,25 +52,17 @@ class ReceiptParser:
     # ------------------------------------------------------------------ #
 
     @observe()
-    def validate_file(
-        self,
-        file_bytes: bytes,
-        mime_type: str
-    ) -> bool:
-        """Check that file is supported and not corrupted."""
-
+    def validate_file(self, file_bytes: bytes, mime_type: str) -> bool:
+        """Validate that the file is supported and not corrupted."""
         if mime_type == "application/pdf":
             if not file_bytes.startswith(b'%PDF'):
                 raise ValueError("File is not a valid PDF")
-
         elif mime_type in ["image/jpeg", "image/png", "image/jpg", "image/heic"]:
             kind = filetype.guess(file_bytes)
             if not kind or kind.mime != mime_type:
                 raise ValueError("File is not a valid image")
-
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
-
         return True
 
     # ------------------------------------------------------------------ #
@@ -71,34 +70,31 @@ class ReceiptParser:
     # ------------------------------------------------------------------ #
 
     @observe()
-    def extract_text(
-        self,
-        file_bytes: bytes,
-        mime_type: str
-    ) -> str:
-        """Extract text from a PDF or Image using PyPDF2 / Tesseract OCR."""
-
+    def extract_text(self, file_bytes: bytes, mime_type: str) -> str:
+        """Extract text from a PDF or Image using PyPDF2 or Tesseract OCR."""
         self.validate_file(file_bytes, mime_type)
 
-        # normalize
+        # Normalize MIME type
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
 
-        # PDFs
+        # PDF extraction
         if mime_type == "application/pdf":
             try:
                 reader = PdfReader(BytesIO(file_bytes))
-                text = "\n".join((page.extract_text() or "") for page in reader.pages)
+                text = "\n".join(page.extract_text() or "" for page in reader.pages)
                 return text.strip() or "[No text extracted from PDF]"
             except Exception:
+                logging.exception("PDF extraction failed")
                 return "[PDF extraction failed]"
 
-        # Images
+        # Image OCR extraction
         if mime_type.startswith("image/"):
             try:
                 img = Image.open(BytesIO(file_bytes))
                 return pytesseract.image_to_string(img).strip() or "[No text extracted from image]"
             except Exception:
+                logging.exception("Image OCR failed")
                 return "[Image OCR failed]"
 
         raise ValueError(f"Unsupported type for extraction: {mime_type}")
@@ -108,39 +104,22 @@ class ReceiptParser:
     # ------------------------------------------------------------------ #
 
     @observe()
-    def analyze_receipt(
-        self,
-        file_bytes: bytes,
-        mime_type: str = None
-    ) -> dict:
+    def analyze_receipt(self, file_bytes: bytes, mime_type: Optional[str] = None) -> dict:
         """Run full structured receipt parsing using AI."""
-
-        # Detect mime if not given
         if mime_type is None:
             kind = filetype.guess(file_bytes)
             mime_type = kind.mime if kind else "application/octet-stream"
 
-        # Validate file
         self.validate_file(file_bytes, mime_type)
 
-        # Ask AI for structured schema output
-        schema = self._receipt_schema()
-        data = self.ai.extract_structured(
-            file_bytes=file_bytes,
-            schema=schema,
-            mime_type=mime_type
-        )
+        schema = self._get_receipt_schema()
+        data = self.ai.extract_structured(file_bytes=file_bytes, schema=schema, mime_type=mime_type)
 
-        # Normalize items
+        # Normalize quantities and unit prices
         for item in data.get("items", []):
             if item.get("quantity") is None:
                 item["quantity"] = 1
-
-            if (
-                item.get("unit_price") is None and
-                item.get("total_price") is not None and
-                item["quantity"] == 1
-            ):
+            if item.get("unit_price") is None and item.get("total_price") is not None and item["quantity"] == 1:
                 item["unit_price"] = item["total_price"]
 
         return data
@@ -150,20 +129,13 @@ class ReceiptParser:
     # ------------------------------------------------------------------ #
 
     @observe()
-    def process_and_store(
-        self,
-        file_bytes: bytes,
-        mime_type: str,
-        user_id: str
-    ) -> dict:
+    def process_and_store(self, file_bytes: bytes, mime_type: str, user_id: str) -> dict:
         """
-        Analyze receipt + store in DB + update pantry & shopping list.
+        Analyze receipt, store in database, update pantry, and clean shopping list.
         """
-
-        # First get structured receipt data
         data = self.analyze_receipt(file_bytes, mime_type=mime_type)
 
-        # Try to persist receipt row
+        # Persist receipt row
         receipt_row = None
         try:
             receipt_row = self.db.insert_receipt(user_id, data)
@@ -172,7 +144,7 @@ class ReceiptParser:
 
         receipt_id = receipt_row.get("id") if receipt_row else None
 
-        # For every item detected
+        # Update pantry and shopping list for each item
         for item in data.get("items", []):
             name = item.get("name")
             if not name:
@@ -182,7 +154,7 @@ class ReceiptParser:
             unit = item.get("unit") or None
             normalized = self.db._normalize_name(name)
 
-            # ---- Add to pantry ---- #
+            # Add to pantry
             try:
                 self.db.upsert_pantry_item(
                     user_id=user_id,
@@ -195,7 +167,7 @@ class ReceiptParser:
             except Exception as e:
                 logging.exception("Pantry update failed: %s", e)
 
-            # ---- Remove from shopping list ---- #
+            # Remove from shopping list
             try:
                 self.db.remove_shopping_list_item_if_present(
                     user_id=user_id,
@@ -206,3 +178,26 @@ class ReceiptParser:
                 logging.exception("Shopping List cleanup failed: %s", e)
 
         return receipt_row or data
+
+    @observe()
+    def _get_receipt_schema(self) -> dict:
+        """Return JSON schema for structured receipt extraction."""
+        return {
+            "store_name": "string or null",
+            "purchase_date": "YYYY-MM-DD or null",
+            "purchase_time": "HH:MM or null",
+            "invoice_number": "string or null",
+            "items": [
+                {
+                    "name": "string",
+                    "section": "string or null",
+                    "quantity": "number or null",
+                    "unit_price": "number or null",
+                    "total_price": "number or null"
+                }
+            ],
+            "subtotal": "number or null",
+            "discounts": "number or null",
+            "total": "number or null",
+            "payment_method": "string or null"
+        }

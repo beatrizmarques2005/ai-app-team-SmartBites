@@ -10,6 +10,13 @@ import os
 import google.genai as genai
 from dotenv import load_dotenv
 
+import json
+from io import BytesIO
+from PyPDF2 import PdfReader
+from PIL import Image
+import pytesseract
+from langfuse import observe
+
 from src.tools.pantry_checker import PantryChecker
 from src.tools.user_checker import UserChecker
 from src.tools.pantry_writer import PantryWriter
@@ -35,8 +42,9 @@ class AIService:
 
         self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
-        self.model = os.getenv("MODEL") or "gemini-1.5-flash"
-        self.temperature = float(os.getenv("TEMPERATURE") or 0.7)
+        self.model = os.getenv("MODEL")
+        self.temperature = float(os.getenv("TEMPERATURE"))
+        self.max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS"))
 
         base_dir = os.path.dirname(os.path.abspath(__file__))
         print("AIService base_dir =", base_dir) 
@@ -46,6 +54,42 @@ class AIService:
 
         with open(file_path, "r", encoding="utf-8") as file:
             self.system_instruction = file.read()
+    
+    @observe()
+    def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
+        """
+        Extract structured receipt data directly using AI.
+        Does NOT create a chat — just calls the AI model.
+        """
+        # Step 1: Convert file to plain text
+        text = ""
+        if mime_type == "application/pdf":
+            reader = PdfReader(BytesIO(file_bytes))
+            text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        elif mime_type.startswith("image/"):
+            img = Image.open(BytesIO(file_bytes))
+            text = pytesseract.image_to_string(img)
+        else:
+            raise ValueError(f"Unsupported file type for extraction: {mime_type}")
+
+        # Step 2: Ask AI to structure the text according to schema
+        # Here we use the Gemini client directly
+        prompt = f"Extract receipt data from the text below using this schema:\n{json.dumps(schema, indent=2)}\n\nReceipt text:\n{text}"
+
+        response = self.client.responses.create(
+            model=self.model,
+            temperature=self.temperature,
+            max_output_tokens=2000,
+            prompt=prompt
+        )
+
+        # Step 3: Parse AI output as JSON
+        try:
+            structured_data = json.loads(response.output_text)
+        except Exception:
+            structured_data = {"items": [], "error": "Failed to parse AI output"}
+
+        return structured_data
 
     # --- Tool Definition (Function Calling) ---
     def fetch_url_content(self, url: str) -> str:
@@ -85,7 +129,7 @@ class AIService:
                     model=self.model,
                     config = {
                         'temperature': self.temperature,
-                        'max_output_tokens': int(os.getenv("MAX_OUTPUT_TOKENS")),
+                        'max_output_tokens': int(self.max_output_tokens),
                         'system_instruction': str(self.system_instruction), 
                         'tools' : [self.fetch_url_content, 
                                    ingredientchecker.available_ingredients,

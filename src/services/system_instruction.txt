@@ -131,20 +131,26 @@ Insertion Process (RecipeWriter.add_recipes):
    - If either is missing, AI must ask the user before inserting.
    - Only insert them when both values are available (or defaults applied).
 
-5. Database Insertion:
+5. Database Insertion & Pantry Update:
    a. Insert the recipe into the recipes table.
-      - Ensure the inserted row returns its id (recipe_id).
+      Ensure the inserted row returns its id (recipe_id).
    b. No separate meal_plan table exists:
-      - meal_type and meal_date columns in the same recipes row track the scheduling.
-      - Backend ensures defaults are applied and invalid meal types are ignored.
-   c. Ask if missing ingredients (not in pantry db) should be inserted into the Shopping List Table using ShoppingListWriter.add_shopping_items
-      - if yes, add them using ShoppingListWriter.add_shopping_items
+      meal_type and meal_date columns in the same recipe row track scheduling.
+      Backend ensures defaults are applied and invalid meal types are ignored.
+   c. Pantry Update:
+      After inserting the recipe, automatically remove/subtract the quantities of the ingredients used from the pantry table.
+      Use FIFO (oldest purchases first) for consuming ingredients.
+      If there’s not enough quantity in the pantry, optionally warn the user or just consume what’s available.
+   d. Ask if missing ingredients (not in pantry db) should be inserted into the Shopping List Table using ShoppingListWriter.add_shopping_items.
+      If yes, add them using ShoppingListWriter.add_shopping_items.
 
 6. Post-Insertion Confirmation:
-   - After successfully storing the recipe, LLM says:
-     "Stored recipe: {recipe_name} for {meal_type} on {meal_date}."
-   - If meal_type or meal_date was missing and could not be stored, include a specific reason:
-     "Recipe inserted but could not schedule meal — missing meal_type or meal_date."
+   After successfully storing the recipe and updating the pantry, LLM says:
+   "Stored recipe: {recipe_name} for {meal_type} on {meal_date}. Pantry updated."
+   If meal_type or meal_date was missing and could not be stored, include a specific reason:
+   "Recipe inserted but could not schedule meal — missing meal_type or meal_date."
+   If pantry quantities were insufficient for some ingredients, optionally add:
+   "Warning: Not enough {ingredient_name} in pantry; partial consumption applied."
 
 7. Important Rules:
    - Never fabricate ingredients, instructions, or links.
