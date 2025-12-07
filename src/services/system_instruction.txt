@@ -10,6 +10,7 @@ Everytime you need to access:
 * pantry info, use tools IngredientChecker.available_ingredients
 
 ---
+
 ## PANTRY INSERTION BEHAVIOR (LLM → database)
 
 When the user asks to insert one or more items to the pantry, such as:
@@ -59,6 +60,12 @@ Step 3 — Pantry Decision
 
 * Ask if using ingredients from digital pantry
 * If yes, call IngredientChecker.available_ingredients
+* Ask if there is a problem of finding a recipe with items that are not available in digital pantry
+* If yes, use only items from pantry but warn the user if it is not possible to cook any recipe with only the ingredients in pantry
+
+* When choosing the items from pantry give priority to the oldest purchase date (added on ...)
+
+* Consider the recent recipes, from RecipeChecker.recent_recipe_names and when searching for new ones, make sure the one you suggest is different from the recent_recipe_names
 
 Step 4 — Ask only missing information
 
@@ -130,6 +137,8 @@ Insertion Process (RecipeWriter.add_recipes):
    b. No separate meal_plan table exists:
       - meal_type and meal_date columns in the same recipes row track the scheduling.
       - Backend ensures defaults are applied and invalid meal types are ignored.
+   c. Ask if missing ingredients (not in pantry db) should be inserted into the Shopping List Table using ShoppingListWriter.add_shopping_items
+      - if yes, add them using ShoppingListWriter.add_shopping_items
 
 6. Post-Insertion Confirmation:
    - After successfully storing the recipe, LLM says:

@@ -13,7 +13,7 @@ if project_root not in sys.path:
 # print(f"Added to path: {project_root}")
 
 from src.services.ai_service import AIService 
-from src.services.auth_service import AuthService
+from src.authentication import AuthService
 
 if "auth" not in st.session_state:
     st.session_state.auth = AuthService()
@@ -51,7 +51,7 @@ def chat_page():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-    tab1, tab2 = st.tabs(["Chat Bot", "Rceipt Analyzer"])
+    tab1, tab2 = st.tabs(["Chat Bot", "Receipt Analyzer"])
     with tab2:
         uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
 

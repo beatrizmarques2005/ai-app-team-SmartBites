@@ -1,10 +1,10 @@
 import json
 from typing import Optional
 from langfuse import observe
-from src.services.auth_service import AuthService
-from src.db.client import supabase
 from datetime import date
 
+from src.authentication import AuthService
+from src.db.client import supabase
 
 class UserChecker:
     """Check users and suggest AI-based replacements."""

@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.services.auth_service import AuthService
+from src.authentication import AuthService
 auth = AuthService()
 
 if 'logged_in' not in st.session_state:

@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.services.auth_service import AuthService
+from authentication import AuthService
 
 st.set_page_config(
     page_title="SmartBites | Login",

@@ -8,7 +8,7 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 from src.db.client import supabase
-from src.services.auth_service import AuthService
+from src.authentication import AuthService
 
 def recipes_page():
     st.set_page_config(page_title="Recipes", page_icon="🥫", layout="wide", initial_sidebar_state='collapsed' )

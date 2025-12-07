@@ -7,8 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.services.auth_service import AuthService
-
+from src.authentication import AuthService
 
 def login_page():
     st.title('Login to your Smart Bites Page!')
@@ -17,8 +16,6 @@ def login_page():
     st.session_state.email = st.text_input('Email', value =  st.session_state.email, placeholder = 'you@example.com')
 
     st.session_state.password = st.text_input('Password', value = st.session_state.password, type = 'password', placeholder = '••••••••')
-
-
 
     with st.form('login_form'):
         submitted = st.form_submit_button('Login')
@@ -55,12 +52,7 @@ def login_page():
             except Exception:
                 st.error("❌ Invalid email or password")
 
-
-
     st.markdown('Don\'t have an account?')
     if st.button('Sign Up', type = 'tertiary'):
         st.session_state['show_signup'] = True
         st.rerun()
-
-
-

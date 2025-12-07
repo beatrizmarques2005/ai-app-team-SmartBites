@@ -1,11 +1,11 @@
-import json
 from typing import Optional
 from langfuse import observe
-from src.services.auth_service import AuthService
+
+from src.authentication import AuthService
 from src.db.client import supabase
 
 
-class IngredientChecker:
+class PantryChecker:
     """Check pantry_items and suggest AI-based replacements."""
 
     def __init__(self, auth: AuthService):

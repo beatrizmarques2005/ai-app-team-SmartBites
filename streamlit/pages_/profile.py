@@ -1,10 +1,12 @@
 import streamlit as st
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
 from src.db.client import supabase
-from src.services.auth_service import AuthService
+from src.authentication import AuthService
 
 def profile_page():
     st.set_page_config(page_title='User Profile', page_icon='👤')

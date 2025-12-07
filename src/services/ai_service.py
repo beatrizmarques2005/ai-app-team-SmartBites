@@ -6,19 +6,18 @@ helpers into a single service to avoid scattering AI logic across multiple files
 """
 import requests
 from bs4 import BeautifulSoup
-
 import os
-from typing import Optional, Any
-
 import google.genai as genai
-from google.genai import types
 from dotenv import load_dotenv
 
-from src.tools.ingredient_checker import IngredientChecker
+from src.tools.pantry_checker import PantryChecker
 from src.tools.user_checker import UserChecker
 from src.tools.pantry_writer import PantryWriter
 from src.tools.recipe_writer import RecipeWriter
-from src.services.auth_service import AuthService
+from src.tools.recipe_checker import RecipeChecker
+from src.tools.shopping_writer import ShoppingListWriter
+
+from src.authentication import AuthService
 
 load_dotenv()
 
@@ -75,10 +74,12 @@ class AIService:
 
     def create_chat(self, auth: AuthService):
         """Create a new chat session."""
-        ingredientchecker = IngredientChecker(auth)
+        ingredientchecker = PantryChecker(auth)
         userchecker = UserChecker(auth)
         pantrywriter = PantryWriter(auth)
-        recipe_writer = RecipeWriter(auth)
+        recipewriter = RecipeWriter(auth)
+        shoppingwriter = ShoppingListWriter(auth)
+        recipechecker = RecipeChecker(auth)
 
         return self.client.chats.create(
                     model=self.model,
@@ -91,7 +92,9 @@ class AIService:
                                    userchecker.identify_user,
                                    userchecker.preferences,
                                    pantrywriter.add_items,
-                                   recipe_writer.add_recipes
+                                   recipewriter.add_recipes,
+                                   shoppingwriter.add_shopping_items,
+                                   recipechecker.recent_recipes,
                                    ]
                     }, 
         )

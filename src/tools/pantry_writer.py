@@ -2,7 +2,8 @@ import json
 from datetime import datetime
 from typing import Optional, List
 from langfuse import observe
-from src.services.auth_service import AuthService
+
+from src.authentication import AuthService
 from src.db.client import supabase
 
 

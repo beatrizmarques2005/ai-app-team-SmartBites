@@ -25,33 +25,6 @@ class SupabaseAdapter:
             return ""
         return name.strip().lower()
 
-    def insert_receipt(self, user_id: str, receipt_data: dict) -> Optional[Dict[str, Any]]:
-        payload = {
-            "user_id": user_id,
-            "store_name": receipt_data.get("store_name"),
-            "purchase_date": receipt_data.get("purchase_date"),
-            "purchase_time": receipt_data.get("purchase_time"),
-            "invoice_number": receipt_data.get("invoice_number"),
-            "items": receipt_data.get("items", []),
-            "subtotal": receipt_data.get("subtotal"),
-            "discounts": receipt_data.get("discounts"),
-            "total": receipt_data.get("total"),
-            "payment_method": receipt_data.get("payment_method"),
-            "raw_ocr_text": receipt_data.get("raw_ocr_text"),
-            "parsed": True,
-            "parsing_confidence": receipt_data.get("parsing_confidence"),
-            "created_at": datetime.utcnow().isoformat(),
-        }
-
-        if not self._has_table:
-            # DB not configured; return the payload as-is for best-effort flows
-            return {**payload, "id": None}
-
-        resp = self.client.table("receipts").insert(payload).execute()
-        if resp and hasattr(resp, "data") and resp.data:
-            return resp.data[0]
-        return None
-
     def find_pantry_item(self, user_id: str, normalized_name: str) -> Optional[Dict[str, Any]]:
         if not self._has_table:
             return None

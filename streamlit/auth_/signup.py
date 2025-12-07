@@ -9,7 +9,7 @@ from datetime import date
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.services.auth_service import AuthService
+from src.authentication import AuthService
 from src.db.client import supabase
 
 def signup_page():

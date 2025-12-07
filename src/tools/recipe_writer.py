@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import List
 from langfuse import observe
-from src.services.auth_service import AuthService
+
+from src.authentication import AuthService
 from src.db.client import supabase
 
 class RecipeWriter:
@@ -13,12 +14,14 @@ class RecipeWriter:
             raise ValueError("User must be authenticated.")
 
     # ---------------- Duplicate Check ----------------
-    def recipe_exists(self, recipe_name: str) -> bool:
+    def recipe_exists(self, recipe_name: str, meal_type: str, date: datetime) -> bool:
         res = (
             supabase.table("recipes")
             .select("id")
             .eq("user_id", self.user_id)
             .eq("recipe_name", recipe_name)
+            .eq("meal_type", meal_type)
+            .eq("meal_date", date)
             .execute()
         )
         return bool(res.data)
@@ -47,7 +50,7 @@ class RecipeWriter:
             meal_date = r.get("meal_date") or datetime.utcnow().date().isoformat()
 
             # Dedup check
-            if self.recipe_exists(recipe_name):
+            if self.recipe_exists(recipe_name, meal_type, meal_date):
                 skipped.append(recipe_name)
                 continue
 
