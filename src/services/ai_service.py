@@ -9,12 +9,11 @@ from bs4 import BeautifulSoup
 import os
 import google.genai as genai
 from dotenv import load_dotenv
+from google.genai import types
 
 import json
 from io import BytesIO
 from PyPDF2 import PdfReader
-from PIL import Image
-import pytesseract
 from langfuse import observe
 
 from src.tools.pantry_checker import PantryChecker
@@ -58,38 +57,88 @@ class AIService:
     @observe()
     def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
         """
-        Extract structured receipt data directly using AI.
-        Does NOT create a chat — just calls the AI model.
+        Extract structured receipt data directly using Gemini's multimodal API.
+        Does NOT create a chat — just calls the AI model with the file.
         """
-        # Step 1: Convert file to plain text
-        text = ""
-        if mime_type == "application/pdf":
-            reader = PdfReader(BytesIO(file_bytes))
-            text = "\n".join(page.extract_text() or "" for page in reader.pages)
-        elif mime_type.startswith("image/"):
-            img = Image.open(BytesIO(file_bytes))
-            text = pytesseract.image_to_string(img)
-        else:
-            raise ValueError(f"Unsupported file type for extraction: {mime_type}")
+        # Normalize MIME type
+        if mime_type == "image/jpg":
+            mime_type = "image/jpeg"
 
-        # Step 2: Ask AI to structure the text according to schema
-        # Here we use the Gemini client directly
-        prompt = f"Extract receipt data from the text below using this schema:\n{json.dumps(schema, indent=2)}\n\nReceipt text:\n{text}"
-
-        response = self.client.responses.create(
-            model=self.model,
-            temperature=self.temperature,
-            max_output_tokens=2000,
-            prompt=prompt
-        )
-
-        # Step 3: Parse AI output as JSON
         try:
-            structured_data = json.loads(response.output_text)
-        except Exception:
-            structured_data = {"items": [], "error": "Failed to parse AI output"}
+            # Create a very concise prompt to save tokens
+            schema_prompt = f"""Extract receipt data as JSON:
+{json.dumps(schema, indent=2)}
+Return ONLY valid JSON."""
 
-        return structured_data
+            # Send file directly to Gemini via multimodal API
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=[
+                    schema_prompt,
+                    types.Part.from_bytes(
+                        data=file_bytes,
+                        mime_type=mime_type
+                    )
+                ],
+                config=genai.types.GenerateContentConfig(
+                    temperature=self.temperature,
+                    max_output_tokens=8000  # Increased to 8000 to ensure enough tokens
+                )
+            )
+
+            # Check if response exists
+            if response is None:
+                return {"items": [], "error": "Gemini returned None response"}
+            
+            # Try to extract text from response
+            response_text = None
+            
+            # First try direct text attribute
+            if hasattr(response, 'text') and response.text:
+                response_text = response.text
+            # If that fails, try candidates array
+            elif hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                        for part in candidate.content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                response_text = part.text
+                                break
+                    if response_text:
+                        break
+            
+            if response_text is None:
+                # Get finish_reason from candidates for debugging
+                finish_reason = "unknown"
+                if hasattr(response, 'candidates') and response.candidates:
+                    finish_reason = getattr(response.candidates[0], 'finish_reason', 'unknown')
+                return {"items": [], "error": f"Gemini returned no text. Finish reason: {finish_reason}"}
+
+            # Parse JSON response
+            response_text = response_text.strip()
+            if not response_text:
+                return {"items": [], "error": "Gemini returned empty text (after stripping)"}
+            
+            # Remove markdown code block wrapping if present
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]  # Remove ```json
+            elif response_text.startswith("```"):
+                response_text = response_text[3:]  # Remove ```
+            
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]  # Remove trailing ```
+            
+            response_text = response_text.strip()
+            
+            structured_data = json.loads(response_text)
+            return structured_data
+
+        except json.JSONDecodeError as e:
+            # Return more diagnostic info about the failed text
+            return {"items": [], "error": f"Failed to parse AI output as JSON: {str(e)}. Text preview: {response_text[:100] if response_text else 'EMPTY'}"}
+        except Exception as e:
+            import traceback
+            return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
 
     # --- Tool Definition (Function Calling) ---
     def fetch_url_content(self, url: str) -> str:

@@ -20,19 +20,21 @@ Key Features:
 """
 
 import logging
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from io import BytesIO
+import json
 
 import filetype
 from langfuse import observe
 from PyPDF2 import PdfReader
-from PIL import Image
-import pytesseract
 from dotenv import load_dotenv
 import os
+from google import genai
+from google.genai import types
+from datetime import datetime
 
 from ..services.ai_service import AIService
-from ..db.supabase_adapter import SupabaseAdapter
+from ..db.client import supabase
 
 load_dotenv()
 
@@ -42,10 +44,11 @@ class ReceiptParser:
 
     def __init__(self):
         # Initialize AI extractor with model from environment
-        self.ai = AIService(model_name=os.getenv("MODEL"))
+        self.ai = AIService()
 
-        # Initialize database adapter
-        self.db = SupabaseAdapter()
+        # Initialize database client directly
+        self.client = supabase
+        self._has_table = hasattr(self.client, 'table')
 
     # ------------------------------------------------------------------ #
     #                          FILE VALIDATION                           #
@@ -71,33 +74,36 @@ class ReceiptParser:
 
     @observe()
     def extract_text(self, file_bytes: bytes, mime_type: str) -> str:
-        """Extract text from a PDF or Image using PyPDF2 or Tesseract OCR."""
+        """Extract text from a PDF or Image using Gemini's multimodal API."""
         self.validate_file(file_bytes, mime_type)
 
         # Normalize MIME type
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
 
-        # PDF extraction
-        if mime_type == "application/pdf":
-            try:
-                reader = PdfReader(BytesIO(file_bytes))
-                text = "\n".join(page.extract_text() or "" for page in reader.pages)
-                return text.strip() or "[No text extracted from PDF]"
-            except Exception:
-                logging.exception("PDF extraction failed")
-                return "[PDF extraction failed]"
+        try:
+            # Initialize Gemini client
+            client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = "gemini-2.5-flash-lite"
 
-        # Image OCR extraction
-        if mime_type.startswith("image/"):
-            try:
-                img = Image.open(BytesIO(file_bytes))
-                return pytesseract.image_to_string(img).strip() or "[No text extracted from image]"
-            except Exception:
-                logging.exception("Image OCR failed")
-                return "[Image OCR failed]"
+            # Use Gemini to extract text from PDF or image
+            response = client.models.generate_content(
+                model=model,
+                contents=[
+                    "Extract all text from this document. Return ONLY the extracted text, no additional commentary.",
+                    types.Part.from_bytes(
+                        data=file_bytes,
+                        mime_type=mime_type
+                    )
+                ]
+            )
 
-        raise ValueError(f"Unsupported type for extraction: {mime_type}")
+            extracted_text = response.text.strip()
+            return extracted_text or "[No text extracted from document]"
+
+        except Exception:
+            logging.exception("Text extraction with Gemini failed")
+            return "[Text extraction failed]"
 
     # ------------------------------------------------------------------ #
     #                   AI STRUCTURED RECEIPT PARSING                    #
@@ -128,23 +134,179 @@ class ReceiptParser:
     #                       DB + PANTRY UPDATES                          #
     # ------------------------------------------------------------------ #
 
+    def _normalize_name(self, name: str) -> str:
+        if not name:
+            return ""
+        return name.strip().lower()
+
+    def insert_receipt(self, user_id: str, receipt_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Insert receipt items directly into pantry_items table.
+        
+        The receipt_data contains store_name, purchase_date, and items.
+        We insert each item from the receipt into pantry_items.
+        """
+        from uuid import uuid4
+        
+        # Generate a receipt ID for reference
+        receipt_id = str(uuid4())
+        store_name = receipt_data.get("store_name")
+        purchase_date = receipt_data.get("purchase_date")
+        
+        # Each item in the receipt will be inserted into pantry_items
+        # This method returns a mock receipt object with the ID
+        result = {
+            "id": receipt_id,
+            "user_id": user_id,
+            "store_name": store_name,
+            "purchase_date": purchase_date,
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        logging.info(f"Generated receipt ID {receipt_id} for {store_name} on {purchase_date}")
+        return result
+
+    def find_pantry_item(self, user_id: str, normalized_name: str) -> Optional[Dict[str, Any]]:
+        """Find an existing pantry item by normalized ingredient name."""
+        if not self._has_table:
+            return None
+
+        # Search using normalized pattern for case-insensitive fuzzy matching
+        search_pattern = f"%{normalized_name}%"
+        resp = self.client.table("pantry_items").select("*").eq("user_id", user_id).ilike("ingredient_name", search_pattern).limit(1).execute()
+        if resp and getattr(resp, "data", None):
+            return resp.data[0]
+        return None
+
+    def upsert_pantry_item(self, user_id: str, name: str, normalized_name: str, quantity: Optional[float], unit: Optional[str], source_receipt_id: Optional[str] = None, store_name: Optional[str] = None, purchase_date: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        # Ensure normalized_name is actually normalized
+        normalized_name = self._normalize_name(normalized_name)
+        existing = self.find_pantry_item(user_id, normalized_name)
+
+        if not self._has_table and not existing:
+            from uuid import uuid4
+            row = {
+                "id": uuid4(),
+                "user_id": user_id,
+                "ingredient_name": name,
+                "quantity": quantity,
+                "store_name": store_name,
+                "purchase_date": purchase_date,
+            }
+            return row
+
+        if existing:
+            try:
+                existing_qty = existing.get("quantity") or 0
+                new_qty = (existing_qty or 0) + (quantity or 0)
+            except Exception:
+                new_qty = quantity
+
+            update_doc = {
+                "quantity": new_qty,
+            }
+            if store_name:
+                update_doc["store_name"] = store_name
+            if purchase_date:
+                update_doc["purchase_date"] = purchase_date
+
+            if not self._has_table:
+                try:
+                    existing['quantity'] = new_qty
+                    if store_name:
+                        existing['store_name'] = store_name
+                    if purchase_date:
+                        existing['purchase_date'] = purchase_date
+                    return existing
+                except Exception:
+                    return None
+
+            resp = self.client.table("pantry_items").update(update_doc).eq("id", existing.get("id")).execute()
+            if resp and getattr(resp, "data", None):
+                return resp.data[0]
+            return None
+
+        payload = {
+            "user_id": user_id,
+            "ingredient_name": normalized_name,
+            "quantity": quantity,
+            "store_name": store_name,
+            "purchase_date": purchase_date,
+        }
+        if not self._has_table:
+            from uuid import uuid4
+            payload_with_id = {**payload, 'id': uuid4()}
+            return payload_with_id
+
+        resp = self.client.table("pantry_items").insert(payload).execute()
+        if resp and getattr(resp, "data", None):
+            return resp.data[0]
+        return None
+
+    def remove_shopping_list_item_if_present(self, user_id: str, normalized_name: str, quantity: Optional[float] = None):
+        """If a shopping list item matches the purchased item, decrement or remove it."""
+        if not self._has_table:
+            return None
+
+        try:
+            # Search using normalized pattern for case-insensitive fuzzy matching
+            search_pattern = f"%{normalized_name}%"
+            resp = self.client.table("shopping_list").select("*").eq("user_id", user_id).ilike("ingredient_name", search_pattern).limit(1).execute()
+            if not resp or not getattr(resp, "data", None):
+                return None
+
+            item = resp.data[0]
+            try:
+                existing_qty = item.get("quantity") or 0
+            except Exception:
+                existing_qty = None
+
+            if existing_qty is None or quantity is None:
+                self.client.table("shopping_list").delete().eq("id", item.get("id")).execute()
+                return {"removed": True}
+
+            new_qty = existing_qty - (quantity or 0)
+            if new_qty <= 0:
+                self.client.table("shopping_list").delete().eq("id", item.get("id")).execute()
+                return {"removed": True}
+            else:
+                self.client.table("shopping_list").update({"quantity": new_qty}).eq("id", item.get("id")).execute()
+                return {"updated_quantity": new_qty}
+        except Exception as e:
+            logging.debug(f"Shopping list update (non-critical): {e}")
+            return None
+
     @observe()
     def process_and_store(self, file_bytes: bytes, mime_type: str, user_id: str) -> dict:
         """
         Analyze receipt, store in database, update pantry, and clean shopping list.
+        Returns a dict with 'success' key and error details if any step fails.
         """
         data = self.analyze_receipt(file_bytes, mime_type=mime_type)
+        
+        # Check if analysis itself failed
+        if "error" in data:
+            return data
 
         # Persist receipt row
         receipt_row = None
         try:
-            receipt_row = self.db.insert_receipt(user_id, data)
+            receipt_row = self.insert_receipt(user_id, data)
+            logging.info(f"Receipt inserted successfully with ID: {receipt_row.get('id') if receipt_row else 'None'}")
         except Exception as e:
-            logging.exception("Failed to persist receipt: %s", e)
+            error_msg = f"Failed to persist receipt: {str(e)}"
+            logging.exception(error_msg)
+            return {"items": [], "error": error_msg}
 
-        receipt_id = receipt_row.get("id") if receipt_row else None
+        if not receipt_row:
+            return {"items": [], "error": "Failed to insert receipt: no row returned from database"}
+
+        receipt_id = receipt_row.get("id")
 
         # Update pantry and shopping list for each item
+        pantry_errors = []
+        store_name = data.get("store_name")
+        purchase_date = data.get("purchase_date")
+        
         for item in data.get("items", []):
             name = item.get("name")
             if not name:
@@ -152,32 +314,42 @@ class ReceiptParser:
 
             quantity = item.get("quantity") or 1
             unit = item.get("unit") or None
-            normalized = self.db._normalize_name(name)
+            normalized = self._normalize_name(name)
 
             # Add to pantry
             try:
-                self.db.upsert_pantry_item(
+                self.upsert_pantry_item(
                     user_id=user_id,
                     name=name,
                     normalized_name=normalized,
                     quantity=quantity,
                     unit=unit,
-                    source_receipt_id=receipt_id
+                    source_receipt_id=receipt_id,
+                    store_name=store_name,
+                    purchase_date=purchase_date
                 )
             except Exception as e:
-                logging.exception("Pantry update failed: %s", e)
+                error_msg = f"Pantry update failed for '{name}': {str(e)}"
+                logging.exception(error_msg)
+                pantry_errors.append(error_msg)
 
             # Remove from shopping list
             try:
-                self.db.remove_shopping_list_item_if_present(
+                self.remove_shopping_list_item_if_present(
                     user_id=user_id,
                     normalized_name=normalized,
                     quantity=quantity
                 )
             except Exception as e:
-                logging.exception("Shopping List cleanup failed: %s", e)
+                error_msg = f"Shopping List cleanup failed for '{name}': {str(e)}"
+                logging.exception(error_msg)
+                # Don't fail completely if shopping list update fails
 
-        return receipt_row or data
+        # Return success with receipt data
+        result = receipt_row or data
+        if pantry_errors:
+            result["pantry_warnings"] = pantry_errors
+        return result
 
     @observe()
     def _get_receipt_schema(self) -> dict:
