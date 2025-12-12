@@ -16,6 +16,7 @@ from io import BytesIO
 from PyPDF2 import PdfReader
 from langfuse import observe
 
+from src.tools.search import Search
 from src.tools.pantry_checker import PantryChecker
 from src.tools.user_checker import UserChecker
 from src.tools.pantry_writer import PantryWriter
@@ -53,7 +54,9 @@ class AIService:
 
         with open(file_path, "r", encoding="utf-8") as file:
             self.system_instruction = file.read()
-    
+        
+        self.tool_registry = {}
+
     @observe()
     def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
         """
@@ -67,8 +70,8 @@ class AIService:
         try:
             # Create a very concise prompt to save tokens
             schema_prompt = f"""Extract receipt data as JSON:
-{json.dumps(schema, indent=2)}
-Return ONLY valid JSON."""
+                                {json.dumps(schema, indent=2)}
+                                Return ONLY valid JSON."""
 
             # Send file directly to Gemini via multimodal API
             response = self.client.models.generate_content(
@@ -82,7 +85,7 @@ Return ONLY valid JSON."""
                 ],
                 config=genai.types.GenerateContentConfig(
                     temperature=self.temperature,
-                    max_output_tokens=8000  # Increased to 8000 to ensure enough tokens
+                    max_output_tokens=self.max_output_tokens,
                 )
             )
 
@@ -139,57 +142,148 @@ Return ONLY valid JSON."""
         except Exception as e:
             import traceback
             return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
+    
+    ###############################
+    ######### O NOSSO!!!! #########
+    ###############################
 
-    # --- Tool Definition (Function Calling) ---
-    def fetch_url_content(self, url: str) -> str:
-        """
-        Fetches the plaintext content of a specific public URL.
-        Use this tool when the user provides a link and asks for a summary or details.
+    # # --- Tool Definition (Function Calling) ---
+    # def fetch_url_content(self, url: str) -> str:
+    #     """
+    #     Fetches the plaintext content of a specific public URL.
+    #     Use this tool when the user provides a link and asks for a summary or details.
 
-        Args:
-            url: The complete URL (e.g., 'https://www.mysite.com/recipe') to fetch content from.
+    #     Args:
+    #         url: The complete URL (e.g., 'https://www.mysite.com/recipe') to fetch content from.
         
-        Returns:
-            The raw text content of the page, or a simple error message if inaccessible.
-        """
-        print(f"Executing Tool: fetch_url_content for {url}")
-        try:
-            # Simple request to fetch the content with a timeout
-            response = requests.get(url, timeout=30)
-            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+    #     Returns:
+    #         The raw text content of the page, or a simple error message if inaccessible.
+    #     """
+    #     print(f"Executing Tool: fetch_url_content for {url}")
+    #     try:
+    #         # Simple request to fetch the content with a timeout
+    #         response = requests.get(url, timeout=30)
+    #         response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             
-            # Use BeautifulSoup to get clean text from the HTML, which is better for the model
-            soup = BeautifulSoup(response.content, 'html.parser')
-            # Return a max of 4000 characters of clean text to avoid hitting context limits
-            return soup.get_text()[:4000]
-        except requests.exceptions.RequestException as e:
-            return f"Error fetching URL content: {e}"
+    #         # Use BeautifulSoup to get clean text from the HTML, which is better for the model
+    #         soup = BeautifulSoup(response.content, 'html.parser')
+    #         # Return a max of 4000 characters of clean text to avoid hitting context limits
+    #         return soup.get_text()[:4000]
+    #     except requests.exceptions.RequestException as e:
+    #         return f"Error fetching URL content: {e}"
 
+    # def create_chat(self, auth: AuthService):
+    #     """Create a new chat session."""
+    #     ingredientchecker = PantryChecker(auth)
+    #     userchecker = UserChecker(auth)
+    #     pantrywriter = PantryWriter(auth)
+    #     recipewriter = RecipeWriter(auth)
+    #     shoppingwriter = ShoppingListWriter(auth)
+    #     recipechecker = RecipeChecker(auth)
+
+    #     return self.client.chats.create(
+    #                 model=self.model,
+    #                 config = {
+    #                     'temperature': self.temperature,
+    #                     'max_output_tokens': int(self.max_output_tokens),
+    #                     'system_instruction': str(self.system_instruction), 
+    #                     'tools' : [
+    #                         # self.fetch_url_content, 
+    #                                ingredientchecker.available_ingredients,
+    #                                userchecker.identify_user,
+    #                                userchecker.preferences,
+    #                                pantrywriter.add_items,
+    #                                recipewriter.add_recipes,
+    #                                shoppingwriter.add_shopping_items,
+    #                                recipechecker.recent_recipes,
+    #                                ]
+    #                 }, 
+    #     )
+    
     def create_chat(self, auth: AuthService):
-        """Create a new chat session."""
         ingredientchecker = PantryChecker(auth)
         userchecker = UserChecker(auth)
         pantrywriter = PantryWriter(auth)
         recipewriter = RecipeWriter(auth)
-        shoppingwriter = ShoppingListWriter(auth)
         recipechecker = RecipeChecker(auth)
+        shoppingwriter = ShoppingListWriter(auth)
+        search_tool = Search()
 
+        # Define tools as JSON schemas (no callables)
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "available_ingredients",
+                    "description": "Check user's pantry ingredients",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "identify_user",
+                    "description": "Identify the user",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "preferences",
+                    "description": "Get user preferences",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "add_items",
+                    "description": "Add items to pantry",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "description": "Search recipes or fetch URL content",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "recipe_name": {"type": "string"},
+                            "query": {"type": "string"},
+                            "urls": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+        ]
+
+        # Map tool names to your actual Python functions
+        self.tool_registry = {
+            "available_ingredients": ingredientchecker.available_ingredients,
+            "identify_user": userchecker.identify_user,
+            "preferences": userchecker.preferences,
+            "add_items": pantrywriter.add_items,
+            "add_recipes": recipewriter.add_recipes,
+            "add_shopping_items": shoppingwriter.add_shopping_items,
+            "recent_recipes": recipechecker.recent_recipes,
+            "search": search_tool.run,
+        }
+
+        # Create chat (AI only sees schemas)
         return self.client.chats.create(
-                    model=self.model,
-                    config = {
-                        'temperature': self.temperature,
-                        'max_output_tokens': int(self.max_output_tokens),
-                        'system_instruction': str(self.system_instruction), 
-                        'tools' : [self.fetch_url_content, 
-                                   ingredientchecker.available_ingredients,
-                                   userchecker.identify_user,
-                                   userchecker.preferences,
-                                   pantrywriter.add_items,
-                                   recipewriter.add_recipes,
-                                   shoppingwriter.add_shopping_items,
-                                   recipechecker.recent_recipes,
-                                   ]
-                    }, 
+            model=self.model,
+            config={
+                "temperature": self.temperature,
+                "max_output_tokens": int(self.max_output_tokens),
+                "system_instruction": str(self.system_instruction),
+                "tools": tools,  # JSON schemas only
+            },
         )
 
     def send_message(self, chat, prompt: str):
