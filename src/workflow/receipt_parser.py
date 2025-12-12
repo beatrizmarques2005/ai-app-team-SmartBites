@@ -38,7 +38,6 @@ from ..db.client import supabase
 
 load_dotenv()
 
-
 class ReceiptParser:
     """Unified service for parsing supermarket receipts and updating pantry/shopping list."""
 

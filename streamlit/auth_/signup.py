@@ -142,13 +142,3 @@ def signup_page():
                 st.session_state.signup_step = 0
                 st.session_state.signup_data = {}
                 st.rerun()
-
-
-
-
-
-
-
-
-
-
