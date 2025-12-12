@@ -21,7 +21,6 @@ def signup_page():
         'household_number': '',
         'restrictions': [],
         'diet_type': [],
-        'favourite_recipes': [],
         'cuisine_type': []        
         }
     for key, default in user_data.items():
@@ -91,13 +90,14 @@ def signup_page():
         st.header("Step 3 — Preferences")
 
         diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
-        cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean",
-                        "American", "Portuguese", "Other"]
+        cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean", "American", "Portuguese"]     
         restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
         with st.form("step_3"):
             st.session_state.dietary = st.multiselect("Dietary preferences", diet_options, accept_new_options = True)
+
             st.session_state.restrictions = st.multiselect("Restrictions (allergies, intolerances, dislikes)", restrictions_options, accept_new_options =True)
+            
             st.session_state.cuisines = st.multiselect("Preferred cuisines", cuisine_options, accept_new_options = True)
         
             create_clicked = st.form_submit_button("Create Account")
