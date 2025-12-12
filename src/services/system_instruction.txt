@@ -81,6 +81,7 @@ Step 6 — Recipe Output Format
 
 * Recipe Name
 * Source link
+* Recipe Link (link of the specific recipe provided to the user)
 * Full ingredient list (scaled)
 * Step-by-step instructions
 
