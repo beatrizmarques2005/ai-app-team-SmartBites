@@ -23,6 +23,7 @@ from src.tools.pantry_writer import PantryWriter
 from src.tools.recipe_writer import RecipeWriter
 from src.tools.recipe_checker import RecipeChecker
 from src.tools.shopping_writer import ShoppingListWriter
+from src.tools.cooking_assistant import CookingAssistant
 
 from src.authentication import AuthService
 
@@ -208,6 +209,7 @@ class AIService:
         recipechecker = RecipeChecker(auth)
         shoppingwriter = ShoppingListWriter(auth)
         search_tool = Search()
+        cooking_assistant = CookingAssistant()
 
         # Define tools as JSON schemas (no callables)
         tools = [
@@ -261,6 +263,43 @@ class AIService:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "cooking_advice",
+                    "description": "Signals cooking-assistant mode and provides structured cooking context for the model to reason over.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "food": {
+                                "type": "string",
+                                "description": "The food being cooked (e.g. steak, chicken, salmon)"
+                            },
+                            "method": {
+                                "type": "string",
+                                "description": "Cooking method (pan, grill, oven, boil, bake, fry)"
+                            },
+                            "goal": {
+                                "type": "string",
+                                "description": "Desired outcome (e.g. medium, fully cooked, crispy)"
+                            },
+                            "thickness_cm": {
+                                "type": "number"
+                            },
+                            "weight_g": {
+                                "type": "number"
+                            },
+                            "heat": {
+                                "type": "string"
+                            },
+                            "state": {
+                                "type": "object"
+                            }
+                        },
+                        "required": ["food", "goal", "method"]
+                    }
+                }
+            }
         ]
 
         # Map tool names to your actual Python functions
@@ -273,6 +312,7 @@ class AIService:
             "add_shopping_items": shoppingwriter.add_shopping_items,
             "recent_recipes": recipechecker.recent_recipes,
             "search": search_tool.run,
+            "cooking_advice": cooking_assistant.advise,
         }
 
         # Create chat (AI only sees schemas)
