@@ -24,8 +24,20 @@ def weekly_planner_page():
     if "selected_event" not in st.session_state:
         st.session_state.selected_event = None
 
+    if 'date_search' not in st.session_state:
+        st.session_state.date_search = None
+
+    # cola, colb = st.columns([1, 3])
+    # with cola:
+    #     selected_date = st.date_input("Go to date", value=st.session_state.date_search or datetime.today())
+    #     if st.button("Go"):
+    #         st.session_state.date_search = selected_date
+    #         st.session_state.week_offset = (start_of_week(selected_date) - start_of_week(datetime.today().date())).days // 7
+    #         st.session_state.selected_event = None
+
+
     # --- Week navigation buttons ---
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4  = st.columns(4)
     if col1.button("**<**", type = 'tertiary'):
         st.session_state.week_offset -= 1
         st.session_state.selected_event = None
@@ -38,6 +50,14 @@ def weekly_planner_page():
     if col3.button("**>**", type = 'tertiary'):
         st.session_state.week_offset += 1
         st.session_state.selected_event = None
+
+    with col4:
+        selected_date = st.date_input("🔎", value=st.session_state.date_search or datetime.today())
+        if selected_date:
+            # selected_date = st.date_input("Go to date", value=st.session_state.date_search or datetime.today())
+            st.session_state.date_search = selected_date
+            st.session_state.week_offset = (start_of_week(selected_date) - start_of_week(datetime.today().date())).days // 7
+            st.session_state.selected_event = None
 
     # --- Compute week range ---
     today = datetime.today().date()

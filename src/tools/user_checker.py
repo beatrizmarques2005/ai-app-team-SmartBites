@@ -1,17 +1,17 @@
 import json
 from typing import Optional
 from langfuse import observe
-from src.services.auth_service import AuthService
-from src.db.client import supabase
 from datetime import date
 
+from src.authentication import AuthService
+from src.db.client import supabase
 
 class UserChecker:
     """Check users and suggest AI-based replacements."""
 
     def __init__(self, auth: AuthService):
         self.user_id = auth.get_user_id()
-        self.users = supabase.table("users").select('*').eq('id', self.user_id).execute() if hasattr(supabase, "table") else None
+        self.users = supabase.table("users").select('*').eq('user_id', self.user_id).execute() if hasattr(supabase, "table") else None
 
     def identify_user(self) -> Optional[str]:
         """

@@ -1,11 +1,11 @@
-import json
 from typing import Optional
 from langfuse import observe
-from src.services.auth_service import AuthService
+
+from src.authentication import AuthService
 from src.db.client import supabase
 
 
-class IngredientChecker:
+class PantryChecker:
     """Check pantry_items and suggest AI-based replacements."""
 
     def __init__(self, auth: AuthService):
@@ -73,12 +73,13 @@ class IngredientChecker:
         for r in rows:
             name = r.get("ingredient_name", "Unknown")
             qty = r.get("quantity")
-            created = r.get("created_at")
+            created = r.get("purchase_date")
 
-            entry = name
-            if qty:
-                entry += f": {qty}"
+            entry = str(qty)
+            if name:
+                entry += f" {name}"
             if created:
+                created = created.split("T")[0]  # Just the date part
                 entry += f" (added on {created})"
 
             parts.append(entry)

@@ -1,4 +1,3 @@
-import os
 from src.db.client import supabase
 
 class AuthService:

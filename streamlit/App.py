@@ -33,11 +33,28 @@ else:
 # --- Import Page Components ---
 from auth_.login import login_page
 from auth_.signup import signup_page
+<<<<<<< HEAD:streamlit_copy/App.py
 # Assuming you have placeholders for the rest of your pages:
 # from pages_.profile import profile_page
 # from pages_.chat import chat_page
 # from pages_.planner import weekly_planner_page
 # from pages_.pantry import pantry_page
+=======
+from pages_.profile import profile_page
+from pages_.chat import chat_page
+from pages_.planner import weekly_planner_page
+from pages_.pantry import pantry_page
+from pages_.recipes import recipes_page
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from src.authentication import AuthService
+auth = AuthService()
+>>>>>>> fa9ce1272409ecab2596cf14d628209f3bc4e5bb:streamlit/App.py
 
 # ------------------------------------------------
 ## 1. SESSION STATE INITIALIZATION
@@ -51,7 +68,7 @@ if 'user_id' not in st.session_state:
 if 'auth_mode' not in st.session_state: 
     st.session_state['auth_mode'] = 'login' 
 if 'current_page' not in st.session_state:
-    st.session_state['current_page'] = 'profile'
+    st.session_state['current_page'] = 'chat'
 
 
 # ------------------------------------------------
@@ -71,6 +88,7 @@ def request_password_reset(supabase):
             st.error("Database unavailable.")
             return
 
+<<<<<<< HEAD:streamlit_copy/App.py
         try:
             resp = supabase.table("users").select("id, email").eq("email", email).limit(1).execute()
             user_data = resp.data[0] if resp.data else None
@@ -110,6 +128,38 @@ def reset_password(supabase):
             if not user_data:
                 st.error("Invalid username")
                 return
+=======
+if st.sidebar.button('Profile', type = 'tertiary'):
+    st.session_state['current_page'] = 'profile'
+if st.sidebar.button('Chat', type = 'tertiary'):
+    st.session_state['current_page'] = 'chat'
+if st.sidebar.button('Planner', type = 'tertiary'):
+    st.session_state['current_page'] = 'planner'
+if st.sidebar.button('Pantry', type = 'tertiary'):
+    st.session_state['current_page'] = 'pantry'
+if st.sidebar.button('Recipes', type = 'tertiary'):
+    st.session_state['current_page'] = 'recipes'
+
+
+
+st.sidebar.empty().write("")  # Add some space
+
+if st.sidebar.button('Logout'):
+        auth.logout()
+        st.session_state.clear()
+        st.rerun()
+
+if st.session_state['current_page'] == 'profile':
+    profile_page()
+elif st.session_state['current_page'] == 'chat':
+    chat_page()
+elif st.session_state['current_page'] == 'planner':
+    weekly_planner_page()
+elif st.session_state['current_page'] == 'pantry':
+    pantry_page()
+elif st.session_state['current_page'] == 'recipes':
+    recipes_page()
+>>>>>>> fa9ce1272409ecab2596cf14d628209f3bc4e5bb:streamlit/App.py
 
             token = user_data.get("reset_token")
             expiry_str = user_data.get("token_expiry")

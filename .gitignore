@@ -227,6 +227,3 @@ secrets.py
 *.pyo
 
 *.exe
-
-# Streamlit
-.streamlit/
