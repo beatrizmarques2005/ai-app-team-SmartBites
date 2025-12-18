@@ -10,6 +10,7 @@ import os
 import google.genai as genai
 from dotenv import load_dotenv
 from google.genai import types
+from pathlib import Path
 
 import json
 from io import BytesIO
@@ -47,17 +48,26 @@ class AIService:
         self.temperature = float(os.getenv("TEMPERATURE"))
         self.max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS"))
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        print("AIService base_dir =", base_dir) 
+        # Get the directory where the current script (ai_service.py?) is located
+        base_dir = Path(__file__).resolve().parent
+        file_path = base_dir / "system_instruction.txt"
 
-        file_path = os.path.join(base_dir, "system_instruction.txt")
-        print("Looking for system_instruction.txt at:", file_path)  
+        print(f"Searching in: {file_path}")
 
-        with open(file_path, "r", encoding="utf-8") as file:
-            self.system_instruction = file.read()
-        
-        self.tool_registry = {}
+        if not file_path.exists():
+            alt_path = base_dir.parent / "system_instruction.txt"
+            if alt_path.exists():
+                file_path = alt_path
+                print(f"Found file in alternative path: {file_path}")
+            else:
+                raise FileNotFoundError(f"Could not find system_instruction.txt at {file_path}")
 
+        with open(file_path, "r", encoding="utf-8-sig") as file:
+            raw_data = file.read()
+            print(f"DEBUG: Character count: {len(raw_data)}")
+            print(f"DEBUG: Content starts with: {raw_data[:20]}")
+            self.system_instruction = raw_data
+    
     @observe()
     def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
         """
@@ -144,6 +154,96 @@ class AIService:
             import traceback
             return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
     
+    
+    def web_search(self, query: str) -> dict:
+        """Search the web for recipes and cooking info using specific trusted sources."""
+
+        # Define your trusted domains
+        trusted_sources = [
+            "tudogostoso.com.br", "feed.continente.pt", "auchaneeu.auchan.pt",
+            "pingodoce.pt", "receitaslidl.pt", "allrecipes.com",
+            "simplehomeedit.com", "pinchofyum.com", "alisoneroman.com", 
+            "bbcgoodfood.com"
+        ]
+        
+        # Build a search query that limits results to these sites
+        site_filter = " OR ".join([f"site:{site}" for site in trusted_sources])
+        search_query = f"{query} ({site_filter})"
+
+        print(f"[Searching Trusted Sources: {query}]")
+
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=search_query, # We send the specific filtered query here
+            config=types.GenerateContentConfig(
+                tools=[{"google_search": {}}],
+                temperature=0.0,
+                # Use a specific instruction for the search tool itself
+                system_instruction="Find the most relevant recipe or cooking information from the provided trusted websites."
+            )
+        )
+
+        sources = []
+        metadata = response.candidates[0].grounding_metadata
+        if metadata and metadata.grounding_chunks:
+            sources = [{"title": c.web.title, "url": c.web.uri}
+                       for c in metadata.grounding_chunks]
+        
+        return {"answer": response.text, "sources": sources}
+
+    def save_research_note(self, topic: str, summary: str) -> dict:
+        """Save a research note."""
+        print(f"[Saved note: {topic}]")
+        return {"status": "saved", "topic": topic}
+    
+    def create_chat(self, auth: AuthService):
+
+        ingredientchecker = PantryChecker(auth)
+        userchecker = UserChecker(auth)
+        pantrywriter = PantryWriter(auth)
+        recipewriter = RecipeWriter(auth)
+        recipechecker = RecipeChecker(auth)
+        shoppingwriter = ShoppingListWriter(auth)
+        cooking_assistant = CookingAssistant()
+
+        # 2. Define the list of custom tools
+        # Ensure these objects (ingredientchecker, userchecker, etc.) are initialized
+        tools = [
+            self.web_search,
+            self.save_research_note,
+            ingredientchecker.available_ingredients,
+            userchecker.identify_user,
+            userchecker.preferences,
+            pantrywriter.add_items,
+            recipewriter.add_recipes,
+            shoppingwriter.add_shopping_items,
+            recipechecker.recent_recipes,
+            cooking_assistant.advise,
+        ]
+
+        # Put everything inside the config
+        config = types.GenerateContentConfig(
+            tools=tools,
+            system_instruction=self.system_instruction,
+            temperature=self.temperature,
+            max_output_tokens=self.max_output_tokens,
+        )
+
+        return self.client.chats.create(model=self.model, config=config)
+    
+    def send_message(self, chat, prompt: str):
+        """Send a message and wait for the final text response."""
+        response = chat.send_message(prompt)
+        
+        # If the SDK is calling tools, response.text will eventually 
+        # contain the final recipe after the tools return their data.
+        if response.text:
+            return response.text
+            
+        # If it's still None, it means the model is ONLY calling tools 
+        # and hasn't generated a verbal response yet.
+        return "I'm checking your ingredients and looking for recipes... ask me again in a moment!"
+
     ###############################
     ######### O NOSSO!!!! #########
     ###############################
@@ -201,131 +301,176 @@ class AIService:
     #                 }, 
     #     )
     
-    def create_chat(self, auth: AuthService):
-        ingredientchecker = PantryChecker(auth)
-        userchecker = UserChecker(auth)
-        pantrywriter = PantryWriter(auth)
-        recipewriter = RecipeWriter(auth)
-        recipechecker = RecipeChecker(auth)
-        shoppingwriter = ShoppingListWriter(auth)
-        search_tool = Search()
-        cooking_assistant = CookingAssistant()
+    # def create_chat(self, auth: AuthService):
+    #     ingredientchecker = PantryChecker(auth)
+    #     userchecker = UserChecker(auth)
+    #     pantrywriter = PantryWriter(auth)
+    #     recipewriter = RecipeWriter(auth)
+    #     recipechecker = RecipeChecker(auth)
+    #     shoppingwriter = ShoppingListWriter(auth)
+    #     search_tool = Search()
+    #     cooking_assistant = CookingAssistant()
 
-        # Define tools as JSON schemas (no callables)
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "available_ingredients",
-                    "description": "Check user's pantry ingredients",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "identify_user",
-                    "description": "Identify the user",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "preferences",
-                    "description": "Get user preferences",
-                    "parameters": {"type": "object", "properties": {}},
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "add_items",
-                    "description": "Add items to pantry",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {"items": {"type": "array", "items": {"type": "string"}}},
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "search",
-                    "description": "Search recipes or fetch URL content",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "recipe_name": {"type": "string"},
-                            "query": {"type": "string"},
-                            "urls": {"type": "array", "items": {"type": "string"}},
-                        },
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "cooking_advice",
-                    "description": "Signals cooking-assistant mode and provides structured cooking context for the model to reason over.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "food": {
-                                "type": "string",
-                                "description": "The food being cooked (e.g. steak, chicken, salmon)"
-                            },
-                            "method": {
-                                "type": "string",
-                                "description": "Cooking method (pan, grill, oven, boil, bake, fry)"
-                            },
-                            "goal": {
-                                "type": "string",
-                                "description": "Desired outcome (e.g. medium, fully cooked, crispy)"
-                            },
-                            "thickness_cm": {
-                                "type": "number"
-                            },
-                            "weight_g": {
-                                "type": "number"
-                            },
-                            "heat": {
-                                "type": "string"
-                            },
-                            "state": {
-                                "type": "object"
-                            }
-                        },
-                        "required": ["food", "goal", "method"]
-                    }
-                }
-            }
-        ]
+    #     # Define tools as JSON schemas (no callables)
+    #     tools = [
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "available_ingredients",
+    #                 "description": "Check user's pantry ingredients",
+    #                 "parameters": {"type": "object", "properties": {}},
+    #             },
+    #         },
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "identify_user",
+    #                 "description": "Identify the user",
+    #                 "parameters": {"type": "object", "properties": {}},
+    #             },
+    #         },
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "preferences",
+    #                 "description": "Get user preferences",
+    #                 "parameters": {"type": "object", "properties": {}},
+    #             },
+    #         },
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "add_items",
+    #                 "description": "Add items to pantry",
+    #                 "parameters": {
+    #                     "type": "object",
+    #                     "properties": {"items": {"type": "array", "items": {"type": "string"}}},
+    #                 },
+    #             },
+    #         },
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "search",
+    #                 "description": "Search recipes or fetch URL content",
+    #                 "parameters": {
+    #                     "type": "object",
+    #                     "properties": {
+    #                         "recipe_name": {"type": "string"},
+    #                         "query": {"type": "string"},
+    #                         "urls": {"type": "array", "items": {"type": "string"}},
+    #                     },
+    #                 },
+    #             },
+    #         },
+    #         {
+    #             "type": "function",
+    #             "function": {
+    #                 "name": "cooking_advice",
+    #                 "description": "Signals cooking-assistant mode and provides structured cooking context for the model to reason over.",
+    #                 "parameters": {
+    #                     "type": "object",
+    #                     "properties": {
+    #                         "food": {
+    #                             "type": "string",
+    #                             "description": "The food being cooked (e.g. steak, chicken, salmon)"
+    #                         },
+    #                         "method": {
+    #                             "type": "string",
+    #                             "description": "Cooking method (pan, grill, oven, boil, bake, fry)"
+    #                         },
+    #                         "goal": {
+    #                             "type": "string",
+    #                             "description": "Desired outcome (e.g. medium, fully cooked, crispy)"
+    #                         },
+    #                         "thickness_cm": {
+    #                             "type": "number"
+    #                         },
+    #                         "weight_g": {
+    #                             "type": "number"
+    #                         },
+    #                         "heat": {
+    #                             "type": "string"
+    #                         },
+    #                         "state": {
+    #                             "type": "object"
+    #                         }
+    #                     },
+    #                     "required": ["food", "goal", "method"]
+    #                 }
+    #             }
+    #         }
+    #     ]
 
-        # Map tool names to your actual Python functions
-        self.tool_registry = {
-            "available_ingredients": ingredientchecker.available_ingredients,
-            "identify_user": userchecker.identify_user,
-            "preferences": userchecker.preferences,
-            "add_items": pantrywriter.add_items,
-            "add_recipes": recipewriter.add_recipes,
-            "add_shopping_items": shoppingwriter.add_shopping_items,
-            "recent_recipes": recipechecker.recent_recipes,
-            "search": search_tool.run,
-            "cooking_advice": cooking_assistant.advise,
-        }
+    #     # Map tool names to your actual Python functions
+    #     self.tool_registry = {
+    #         "available_ingredients": ingredientchecker.available_ingredients,
+    #         "identify_user": userchecker.identify_user,
+    #         "preferences": userchecker.preferences,
+    #         "add_items": pantrywriter.add_items,
+    #         "add_recipes": recipewriter.add_recipes,
+    #         "add_shopping_items": shoppingwriter.add_shopping_items,
+    #         "recent_recipes": recipechecker.recent_recipes,
+    #         "search": search_tool.run,
+    #         "cooking_advice": cooking_assistant.advise,
+    #     }
 
-        # Create chat (AI only sees schemas)
-        return self.client.chats.create(
-            model=self.model,
-            config={
-                "temperature": self.temperature,
-                "max_output_tokens": int(self.max_output_tokens),
-                "system_instruction": str(self.system_instruction),
-                "tools": tools,  # JSON schemas only
-            },
-        )
+    #     # Create chat (AI only sees schemas)
+    #     return self.client.chats.create(
+    #         model=self.model,
+    #         config={
+    #             "temperature": self.temperature,
+    #             "max_output_tokens": int(self.max_output_tokens),
+    #             "system_instruction": str(self.system_instruction),
+    #             "tools": tools,  # JSON schemas only
+    #         },
+    #     )
 
-    def send_message(self, chat, prompt: str):
-        """Send a message to an existing chat."""
-        return chat.send_message(prompt)
+    # # Wrapper function that internally uses Google Search
+    # def web_search(self, query: str) -> dict:
+    #     """Search the web for current information."""
+
+    #     print(f"[Searching: {query}]")
+
+    #     response = self.client.models.generate_content(
+    #         model = self.model,
+    #         contents = f"Search for: {query}",
+    #         config=types.GenerateContentConfig(
+    #             tools=[{"google_search": {}},
+    #                    {"url_context: {}"}],
+    #             temperature=0.0,
+    #             system_instruction=self.system_instruction,
+    #             )
+    #         )
+        
+    #     # Extract sources if available
+    #     sources = []
+    #     metadata = response.candidates[0].grounding_metadata
+    #     if metadata and metadata.grounding_chunks:
+    #         sources = [{"title": c.web.title, "url": c.web.uri}
+    #                             for c in metadata.grounding_chunks]
+    #     print(sources)
+    #     return {"answer": response.text, "sources": sources}
+
+
+        # # 3. Configure the session
+        # config = types.GenerateContentConfig(
+        #     tools=tools,
+        #     system_instruction=system_prompt
+        # )
+
+        # # 4. Generate content
+        # response = self.client.models.generate_content(
+        #     model=self.model,
+        #     contents="Check what ingredients I have and suggest a recipe I've made recently.",
+        #     config=config
+        # )
+        
+        # print(response.text)
+
+    # def send_message(self, chat, prompt: str):
+    #     """Send a message to an existing chat."""
+    #     return chat.send_message(prompt)
+
+
+        

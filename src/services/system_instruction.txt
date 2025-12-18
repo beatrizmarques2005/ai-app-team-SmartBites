@@ -76,6 +76,11 @@ Step 5 — Allowed Recipe Sources
 * https://auchaneeu.auchan.pt/foodlovers
 * https://pingodoce.pt/receitas
 * https://receitaslidl.pt
+* https://www.allrecipes.com/
+* https://simplehomeedit.com/
+* https://pinchofyum.com/
+* https://www.alisoneroman.com/recipes/
+* https://www.bbcgoodfood.com/recipes
 
 Step 6 — Recipe Output Format
 

@@ -66,7 +66,3 @@ def recipes_page():
             st.markdown(f"**Instructions:** {rec['instructions']}")
 
         show_recipe()
-
-
-
-
