@@ -296,7 +296,7 @@ class ReceiptParser:
                 continue
             
             is_edible = item.get("is_edible")
-            if is_edible is not True:
+            if not bool(is_edible):
                 logging.info(f"Skipping non-edible receipt item '{name}")
                 continue
 

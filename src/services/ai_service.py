@@ -92,7 +92,8 @@ class AIService:
 
         try:
             # Create a very concise prompt to save tokens
-            schema_prompt = f"""Extract receipt data as JSON:
+            schema_prompt = f""" {RECEIPT_EXTRACTION_RULES}
+                                Return JSON that strictly matches this schema:
                                 {json.dumps(schema, indent=2)}
                                 Return ONLY valid JSON."""
 
