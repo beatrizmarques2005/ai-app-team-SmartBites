@@ -77,6 +77,18 @@ class AIService:
         # Normalize MIME type
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
+        
+        RECEIPT_EXTRACTION_RULES = """
+        You are extracting structured data from a supermarket receipt.
+
+        Rules:
+        - For each item, determine whether it is edible.
+        - Edible items are food or beverages intended for human consumption.
+        - Non-edible items include cleaning products, hygiene items, household supplies,
+        batteries, utensils, paper goods, and similar products.
+        - If you are unsure whether an item is edible, set is_edible = false.
+        - Every item MUST include an is_edible boolean.
+        """
 
         try:
             # Create a very concise prompt to save tokens

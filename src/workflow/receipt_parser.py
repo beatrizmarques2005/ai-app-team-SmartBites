@@ -49,10 +49,6 @@ class ReceiptParser:
         self.client = supabase
         self._has_table = hasattr(self.client, 'table')
 
-    # ------------------------------------------------------------------ #
-    #                          FILE VALIDATION                           #
-    # ------------------------------------------------------------------ #
-
     @observe()
     def validate_file(self, file_bytes: bytes, mime_type: str) -> bool:
         """Validate that the file is supported and not corrupted."""
@@ -66,10 +62,6 @@ class ReceiptParser:
         else:
             raise ValueError(f"Unsupported file type: {mime_type}")
         return True
-
-    # ------------------------------------------------------------------ #
-    #                        TEXT EXTRACTION                             #
-    # ------------------------------------------------------------------ #
 
     @observe()
     def extract_text(self, file_bytes: bytes, mime_type: str) -> str:
@@ -104,10 +96,6 @@ class ReceiptParser:
             logging.exception("Text extraction with Gemini failed")
             return "[Text extraction failed]"
 
-    # ------------------------------------------------------------------ #
-    #                   AI STRUCTURED RECEIPT PARSING                    #
-    # ------------------------------------------------------------------ #
-
     @observe()
     def analyze_receipt(self, file_bytes: bytes, mime_type: Optional[str] = None) -> dict:
         """Run full structured receipt parsing using AI."""
@@ -128,10 +116,6 @@ class ReceiptParser:
                 item["unit_price"] = item["total_price"]
 
         return data
-
-    # ------------------------------------------------------------------ #
-    #                       DB + PANTRY UPDATES                          #
-    # ------------------------------------------------------------------ #
 
     def _normalize_name(self, name: str) -> str:
         if not name:
@@ -310,6 +294,11 @@ class ReceiptParser:
             name = item.get("name")
             if not name:
                 continue
+            
+            is_edible = item.get("is_edible")
+            if is_edible is not True:
+                logging.info(f"Skipping non-edible receipt item '{name}")
+                continue
 
             quantity = item.get("quantity") or 1
             unit = item.get("unit") or None
@@ -364,7 +353,8 @@ class ReceiptParser:
                     "section": "string or null",
                     "quantity": "number or null",
                     "unit_price": "number or null",
-                    "total_price": "number or null"
+                    "total_price": "number or null",
+                    "is_edible": "boolean"
                 }
             ],
             "subtotal": "number or null",
