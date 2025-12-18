@@ -154,7 +154,7 @@ class AIService:
             import traceback
             return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
     
-    
+    @observe()
     def web_search(self, query: str) -> dict:
         """Search the web for recipes and cooking info using specific trusted sources."""
 
@@ -176,7 +176,7 @@ class AIService:
             model=self.model,
             contents=search_query, # We send the specific filtered query here
             config=types.GenerateContentConfig(
-                tools=[{"google_search": {}}],
+                tools=[{"google_search": {}}, {"url_context": {}}],
                 temperature=0.0,
                 # Use a specific instruction for the search tool itself
                 system_instruction="Find the most relevant recipe or cooking information from the provided trusted websites."
@@ -191,11 +191,13 @@ class AIService:
         
         return {"answer": response.text, "sources": sources}
 
+    @observe()
     def save_research_note(self, topic: str, summary: str) -> dict:
         """Save a research note."""
         print(f"[Saved note: {topic}]")
         return {"status": "saved", "topic": topic}
     
+    @observe()
     def create_chat(self, auth: AuthService):
 
         ingredientchecker = PantryChecker(auth)
@@ -217,7 +219,7 @@ class AIService:
             pantrywriter.add_items,
             recipewriter.add_recipes,
             shoppingwriter.add_shopping_items,
-            recipechecker.recent_recipes,
+            recipechecker.recent_recipe_names,
             cooking_assistant.advise,
         ]
 
@@ -231,6 +233,7 @@ class AIService:
 
         return self.client.chats.create(model=self.model, config=config)
     
+    @observe()
     def send_message(self, chat, prompt: str):
         """Send a message and wait for the final text response."""
         response = chat.send_message(prompt)
