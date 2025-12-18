@@ -50,6 +50,46 @@ def chat_page():
         st.session_state.messages = []
 
     tab1, tab2 = st.tabs(["Chat Bot", "Receipt Analyzer"])
+
+    with tab1:
+        # 1. Create a container with a fixed height.
+        # This box will scroll once messages fill it up.
+        # Height can be adjusted (e.g., 500 or 600) to fit your screen.
+        chat_container = st.container(height=500, border=False)
+
+        # 2. Render messages INSIDE the container
+        with chat_container:
+            for msg in st.session_state.messages:
+                avatar = "🧑‍🍳" if msg["role"] == "user" else "🤖"
+                with st.chat_message(msg["role"], avatar=avatar):
+                    st.markdown(msg["content"])
+
+        # 3. Place the input OUTSIDE (below) the container.
+        # Streamlit automatically anchors this to the bottom of the tab area.
+        prompt = st.chat_input("Type your message here...", key="chat_input")
+
+        if prompt:
+            # Save message to state
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Immediately show the user's prompt in the container
+            with chat_container:
+                with st.chat_message("user", avatar="🧑‍🍳"):
+                    st.markdown(prompt)
+
+            # Get and display AI Response
+            with chat_container:
+                with st.chat_message("assistant", avatar="🤖"):
+                    with st.spinner("SmartBites is cooking..."):
+                        try:
+                            response = st.session_state.ai.send_message(st.session_state.chat, prompt)
+                            st.markdown(response.text)
+                            st.session_state.messages.append({"role": "assistant", "content": response.text})
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+
+
+
     with tab2:
         st.subheader("Analyze and store a receipt")
         uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
@@ -58,40 +98,31 @@ def chat_page():
         if uploaded is not None:
             try:
                 file_bytes = uploaded.read()
-                mime_type = getattr(uploaded, "type", None) # or "application/octet-stream"
-
-                # receipt_parser.validate_file(file_bytes, mime_type)
-
-                extracted_text = receipt_parser.extract_text(file_bytes, mime_type)
+                mime_type = getattr(uploaded, "type", None)
 
                 with st.spinner("Analyzing receipt..."):
                     analysis = receipt_parser.analyze_receipt(file_bytes, mime_type=mime_type)
 
-                # Debug: Show any errors
                 if "error" in analysis:
                     st.error(f"Analysis error: {analysis['error']}")
                     st.stop()
 
-                # st.session_state.last_receipt = analysis
-                # st.session_state.last_receipt_file = file_bytes
-                # st.session_state.last_receipt_mime = mime_type
-
-                # with st.expander("Raw extracted text"):
-                #     st.text_area("", value=extracted_text, height=200)
-
-                st.markdown("**Parsed receipt**")
-                st.write({
-                    "store_name": analysis.get("store_name"),
-                    "purchase_date": analysis.get("purchase_date"),
-                    "total": analysis.get("total"),
-                })
-                if items := analysis.get("items"):
-                    st.markdown("**Items**")
-                    for i, item in enumerate(items, 1):
-                        st.write(
-                            f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
-                            f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
-                        )
+                # USING AN EXPANDER: This prevents Tab 2 from becoming so long 
+                # that it pushes the Chat Input in Tab 1 down.
+                with st.expander("📄 View Parsed Receipt Details", expanded=True):
+                    st.write({
+                        "store_name": analysis.get("store_name"),
+                        "purchase_date": analysis.get("purchase_date"),
+                        "total": analysis.get("total"),
+                    })
+                    
+                    if items := analysis.get("items"):
+                        st.markdown("**Items Found:**")
+                        for i, item in enumerate(items, 1):
+                            st.write(
+                                f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
+                                f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
+                            )
 
                 if st.button("Save to pantry & shopping list", key="save_receipt"):
                     user_id = st.session_state.get("user_id")
@@ -99,34 +130,107 @@ def chat_page():
                         st.error("User ID missing; please log in again.")
                     else:
                         try:
-                            with st.spinner("Saving and updating pantry..."):
+                            with st.spinner("Saving..."):
                                 saved = receipt_parser.process_and_store(
                                     file_bytes, mime_type=mime_type, user_id=user_id
                                 )
                             
-                            # Check if save succeeded
                             if "error" in saved:
                                 st.error(f"Failed to save: {saved['error']}")
                             else:
-                                st.success("Receipt saved and pantry/shopping list updated.")
-                                st.json(saved)
-                                # Show any warnings
+                                st.success("Receipt saved successfully!")
                                 if "pantry_warnings" in saved:
-                                    st.warning("Some items had issues updating pantry:\n" + "\n".join(saved["pantry_warnings"]))
+                                    st.warning("\n".join(saved["pantry_warnings"]))
                         except Exception as e:
                             st.error(f"Failed to save receipt: {e}")
             except Exception as e:
                 st.error(f"Receipt processing failed: {e}")
+
+    
+
+
+
+
+        # st.subheader("Analyze and store a receipt")
+        # uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
+        # receipt_parser = ReceiptParser()
+
+        # if uploaded is not None:
+        #     try:
+        #         file_bytes = uploaded.read()
+        #         mime_type = getattr(uploaded, "type", None) # or "application/octet-stream"
+
+        #         # receipt_parser.validate_file(file_bytes, mime_type)
+
+        #         extracted_text = receipt_parser.extract_text(file_bytes, mime_type)
+
+        #         with st.spinner("Analyzing receipt..."):
+        #             analysis = receipt_parser.analyze_receipt(file_bytes, mime_type=mime_type)
+
+        #         # Debug: Show any errors
+        #         if "error" in analysis:
+        #             st.error(f"Analysis error: {analysis['error']}")
+        #             st.stop()
+
+        #         # st.session_state.last_receipt = analysis
+        #         # st.session_state.last_receipt_file = file_bytes
+        #         # st.session_state.last_receipt_mime = mime_type
+
+        #         # with st.expander("Raw extracted text"):
+        #         #     st.text_area("", value=extracted_text, height=200)
+
+        #         st.markdown("**Parsed receipt**")
+        #         st.write({
+        #             "store_name": analysis.get("store_name"),
+        #             "purchase_date": analysis.get("purchase_date"),
+        #             "total": analysis.get("total"),
+        #         })
+        #         if items := analysis.get("items"):
+        #             st.markdown("**Items**")
+        #             for i, item in enumerate(items, 1):
+        #                 st.write(
+        #                     f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
+        #                     f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
+        #                 )
+
+        #         if st.button("Save to pantry & shopping list", key="save_receipt"):
+        #             user_id = st.session_state.get("user_id")
+        #             if not user_id:
+        #                 st.error("User ID missing; please log in again.")
+        #             else:
+        #                 try:
+        #                     with st.spinner("Saving and updating pantry..."):
+        #                         saved = receipt_parser.process_and_store(
+        #                             file_bytes, mime_type=mime_type, user_id=user_id
+        #                         )
+                            
+        #                     # Check if save succeeded
+        #                     if "error" in saved:
+        #                         st.error(f"Failed to save: {saved['error']}")
+        #                     else:
+        #                         st.success("Receipt saved and pantry/shopping list updated.")
+        #                         st.json(saved)
+        #                         # Show any warnings
+        #                         if "pantry_warnings" in saved:
+        #                             st.warning("Some items had issues updating pantry:\n" + "\n".join(saved["pantry_warnings"]))
+        #                 except Exception as e:
+        #                     st.error(f"Failed to save receipt: {e}")
+        #     except Exception as e:
+        #         st.error(f"Receipt processing failed: {e}")
      
         
         
         
-        with tab1:
-            for msg in st.session_state.messages:
-                avatar = "🧑‍🍳" if msg["role"] == "user" else "🤖"
-                with st.chat_message(msg["role"], avatar=avatar):
-                    st.markdown(msg["content"])
-            if prompt := st.chat_input("Type your message here...", key ="chat_input"):
+        # with tab1:
+        #     # 1. Show all messages directly on the page
+        #     for msg in st.session_state.messages:
+        #         avatar = "🧑‍🍳" if msg["role"] == "user" else "🤖"
+        #         with st.chat_message(msg["role"], avatar=avatar):
+        #             st.markdown(msg["content"])
+
+        #     # 2. The Input must be at the very bottom of this block
+        #     # Streamlit will naturally try to anchor this to the bottom of the screen
+        #     prompt = st.chat_input("Type your message here...", key="chat_input")
 
                 with st.chat_message("user", avatar="🧑‍🍳"):
                     st.markdown(prompt)
