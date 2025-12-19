@@ -1,6 +1,6 @@
 # 🍽️ SmartBites — AI-Powered Meal Planner & Nutrition Assistant
 
-SmartBites is a **personalized meal planning web application** powered by **AI and RAG-based document querying**.
+SmartBites is a **personalized meal planning** web application powered by AI-driven reasoning, secure user authentication, and cloud-based data persistence.
 It helps users plan meals, explore nutrition insights, and generate AI-assisted recommendations — all within an interactive **Streamlit** interface powered by the **Google Gemini API**.
 
 ---
@@ -11,8 +11,8 @@ This Capstone project aims to integrate **AI-driven meal planning** with **nutri
 
 * **Conversational AI Web App**: Streamlit-based chatbot using the Gemini API for nutrition Q&A and custom recommendations.
 * **Smart Meal Planner**: AI-generated meal suggestions adapted to user preferences and dietary needs.
-* **RAG Knowledge Base**: Upload and query nutrition or recipe documents through Retrieval-Augmented Generation.
-* **Interactive Experience**: Intuitive web interface for healthy meal planning and daily food tracking.
+* **Secure User Data Management**: Authentication and per-user data persistence using Supabase.
+* **Interactive Experience**: Interactive web interface for meal planning, cooking assistance, and grocery management.
 
 ---
 
@@ -40,7 +40,7 @@ Following the **NOVA IMS Capstone structure**, SmartBites was developed in three
 2. **🧩 Week 12 – Technical Blueprint**
 
    * Detailed architecture and module responsibilities
-   * Integrated Gemini API and RAG pipeline for knowledge retrieval
+   * Integrated Gemini API with tool-based reasoning and controlled web search
    * Designed the Streamlit app structure and function-calling tools
 
 3. **🚀 Final Delivery**
@@ -56,7 +56,7 @@ Following the **NOVA IMS Capstone structure**, SmartBites was developed in three
 | ----------------------------- | ------------------------------- |
 | **Frontend & Deployment**     | Streamlit, Streamlit Cloud      |
 | **AI Integration**            | Google Gemini API               |
-| **Knowledge Retrieval (RAG)** | ChromaDB, LangChain / LangSmith |
+| **Data and Authentication**   | Supabase                        |
 | **Programming Language**      | Python                          |
 | **Collaboration**             | Git, GitHub                     |
 | **Environment Management**    | `venv`, `requirements.txt`      |
@@ -75,12 +75,16 @@ Following the **NOVA IMS Capstone structure**, SmartBites was developed in three
 │   └── data_processing.ipynb
 ├── src/
 │   ├── services/
-│   │   ├── meal_service.py
-│   │   ├── nutrition_service.py
 │   │   └── ai_service.py
 │   ├── tools/
-│   │   ├── calorie_calculator.py
-│   │   └── ingredient_parser.py
+│   │   ├── user_checker.py
+│   │   ├── pantry_checker.py
+│   │   ├── pantry_writer.py
+│   │   ├── recipe_checker.py
+│   │   ├── recipe_writer.py
+│   │   ├── shopping_writer.py
+│   │   ├── search.py
+│   │   └── cooking_assistant.py
 │   ├── utils/
 │   │   ├── config.py
 │   │   └── tracing.py

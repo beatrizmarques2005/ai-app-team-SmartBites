@@ -61,39 +61,30 @@ SmartBites delivers personalized, AI-powered meal recommendations that optimize 
 
 **Framework:** Python (FastAPI or internal Python modules called by Streamlit)
 
-#### Service 1: Grocery Parsing Service
-- **Purpose:** Extract and structure grocery data from receipts.  
-- **Responsibilities:**
-  - Apply OCR to extract text from images or PDFs  
-  - Use AI to identify ingredients, quantities, and prices  
-  - Update the ingredient database with parsed items  
+The Service Layer is implemented as a single, consolidated service: AIService.
+This design decision was made deliberately to centralize all AI orchestration, reasoning, and tool coordination in one place, avoiding duplicated logic and scattered AI calls across the application.
 
-#### Service 2: Meal Planning Service
-- **Purpose:** Generate weekly meal plans.  
-- **Responsibilities:**
-  - Match available ingredients with recipe options  
-  - Optimize for user preferences, dietary restrictions, and goals  
-  - Populate the meal calendar  
+AIService acts as the only Service Layer component, functioning as the orchestration hub between:
 
-#### Service 3: Shopping List Generator
-- **Purpose:** Build shopping lists based on upcoming meal plans.  
-- **Responsibilities:**
-  - Compare recipe requirements vs. current inventory  
-  - List missing ingredients and quantities  
-  - Display or export shopping list  
+- Streamlit UI
+- Google Gemini API
+- Authentication context
+- Deterministic Tools Layer
 
----
+**Platform:** Google Gemini API
 
-### AI Layer (Gemini Operations)
-
-**Platform:** Google Gemini API (via function calling)  
-**Capabilities:**
-- Extract structured data from receipts (item name, quantity, price, supermarket, date)  
-- Handle multi-turn chatbot conversations for meal planning  
-- Summarize weekly meal plans or nutrition intake  
-- Categorize foods by cuisine or group  
-- Generate text content for recipes or feedback messages  
-- Compare recipes based on nutrition, cost, or prep time  
+#### Responsabilities
+- Extract structured data from grocery receipts, including item name, quantity, price, supermarket, and date
+- Handle multi-turn chatbot conversations for meal planning and grocery organization
+- Categorize foods by cuisine, dietary group, or food type
+- Generate text content for recipes, cooking instructions, and feedback messages
+- Manage all interactions with the Google Gemini API
+- Create and maintain authenticated, multi-turn chat sessions
+- Apply global system instructions consistently across all AI calls
+- Translate natural language user intent into deterministic tool invocations
+- Coordinate receipt extraction, meal planning, cooking assistance, and shopping list logic
+- Ensure all AI actions are scoped to the authenticated user
+- Centralize observability and tracing of AI operations using Langfuse
 
 **Multi-turn conversations:**  
 ☑ Yes — for meal planning, dietary guidance, and grocery organization  
@@ -105,11 +96,17 @@ Potential future enhancement — e.g., semantic search across recipe databases.
 
 ### Tools Layer (Function Calling)
 
-| **Tool** | **Purpose** | **Inputs** | **Outputs** |
-|-----------|--------------|-------------|--------------|
-| **BMI Calculator** | Compute BMI for health insights | height, weight | BMI value + health category |
-| **Nutritional Analyzer** | Evaluate nutritional value of recipes | ingredient list | calories, macros, allergens |
-| **Calendar Sync Tool** | Integrate meal plan into user calendar | meal schedule | synced events (via `.ics` export or Google Calendar API) |
+| **Tool** | **Purpose** |
+|-----------|--------------|
+| **User Checker** | Retrieves profile/dietary data for AI use | 
+| **Pantry Checker** | Returns pantry items in consisten, human-readable formatting |
+| **Pantry Writer** | Insert pantry entries (from receipts or user input) and removes consumed items |
+| **Recipe Checker** | Fetches recently cooked recipes to reduce repetition |
+| **Recipe Writer** | Writes/updates/deletes recipes with user approval |
+| **Shopping List Writer** | Writes missing ingredients and reconciles receipt updates |
+| **Search** | Enable Gemini to search for external recipes and retrieve structured web content |
+| **Cooking Assistant** | Provide structured cooking guidance without databse mutation |
+
 
 ---
 
