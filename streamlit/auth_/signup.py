@@ -21,7 +21,6 @@ def signup_page():
         'household_number': '',
         'restrictions': [],
         'diet_type': [],
-        'favourite_recipes': [],
         'cuisine_type': []        
         }
     for key, default in user_data.items():
@@ -92,7 +91,7 @@ def signup_page():
 
         diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
         cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean",
-                        "American", "Portuguese", "Other"]
+                        "American", "Portuguese"]
         restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
         with st.form("step_3"):

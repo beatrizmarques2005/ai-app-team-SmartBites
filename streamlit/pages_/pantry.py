@@ -68,7 +68,7 @@ def pantry_page():
                 manage_key_inc = f"inc_{item_id}_{idx}"
                 
                 adj_cols = row_cols[3].columns([1, 1], gap="small")
-                if adj_cols[0].button("−", key=manage_key_dec, use_container_width=True, type = "tertiary"):
+                if adj_cols[0].button("-", key=manage_key_dec, use_container_width=True, type = "tertiary"):
                     if item_id is None:
                         st.warning("Cannot update: missing id")
                     else:
