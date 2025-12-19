@@ -75,7 +75,7 @@ class ReceiptParser:
         try:
             # Initialize Gemini client
             client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-            model = "gemini-2.5-flash-lite"
+            model = os.getenv("MODEL")
 
             # Use Gemini to extract text from PDF or image
             response = client.models.generate_content(
@@ -295,11 +295,6 @@ class ReceiptParser:
             if not name:
                 continue
             
-            is_edible = item.get("is_edible")
-            if not bool(is_edible):
-                logging.info(f"Skipping non-edible receipt item '{name}")
-                continue
-
             quantity = item.get("quantity") or 1
             unit = item.get("unit") or None
             normalized = self._normalize_name(name)
@@ -354,7 +349,6 @@ class ReceiptParser:
                     "quantity": "number or null",
                     "unit_price": "number or null",
                     "total_price": "number or null",
-                    "is_edible": "boolean"
                 }
             ],
             "subtotal": "number or null",
