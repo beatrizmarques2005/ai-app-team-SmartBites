@@ -30,9 +30,15 @@ class RecipeWriter:
     @observe()
     def add_recipes(self, recipes: List[dict], user_approval: bool = False) -> List[dict]:
         """
-        Insert recipes only after explicit user approval.
-        Returns a list of inserted recipes with IDs.
+        Adds one or more recipes to the database.
+        
+        Args:
+            recipes: A list of recipe dictionaries. Each dict MUST have:
+                'recipe_name' (str), 'ingredients' (str), 'instructions' (str), 
+                'link' (str), 'meal_type' (str), and 'meal_date' (ISO date string).
+            user_approval: Must be True to execute the insert.
         """
+        # ...
         if not user_approval:
             print("Recipes not inserted: awaiting user approval.")
             return []
