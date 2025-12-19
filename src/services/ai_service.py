@@ -4,20 +4,19 @@ AI Service - Consolidated AI helpers for the application
 This file merges extraction, recipe generation, recipe QA and flavor-suggestion
 helpers into a single service to avoid scattering AI logic across multiple files.
 """
-import requests
-from bs4 import BeautifulSoup
-import os
-import google.genai as genai
-from dotenv import load_dotenv
-from google.genai import types
-from pathlib import Path
-
 import json
+import os
+from pathlib import Path
 from io import BytesIO
-from PyPDF2 import PdfReader
-from langfuse import observe
 
-from src.tools.search import Search
+import google.genai as genai
+from google.genai import types
+from dotenv import load_dotenv
+from langfuse import observe
+import time
+from google.api_core.exceptions import ServiceUnavailable
+
+from src.authentication import AuthService
 from src.tools.pantry_checker import PantryChecker
 from src.tools.user_checker import UserChecker
 from src.tools.pantry_writer import PantryWriter
@@ -25,8 +24,8 @@ from src.tools.recipe_writer import RecipeWriter
 from src.tools.recipe_checker import RecipeChecker
 from src.tools.shopping_writer import ShoppingListWriter
 from src.tools.cooking_assistant import CookingAssistant
-
-from src.authentication import AuthService
+from src.utils.pending_meal_plan import PendingMealPlan
+from src.utils.meal_plan_flow import handle_meal_plan_flow
 
 load_dotenv()
 
@@ -48,12 +47,11 @@ class AIService:
         self.temperature = float(os.getenv("TEMPERATURE"))
         self.max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS"))
 
-        # Get the directory where the current script (ai_service.py?) is located
         base_dir = Path(__file__).resolve().parent
         file_path = base_dir / "system_instruction.txt"
 
         print(f"Searching in: {file_path}")
-
+        
         if not file_path.exists():
             alt_path = base_dir.parent / "system_instruction.txt"
             if alt_path.exists():
@@ -74,7 +72,6 @@ class AIService:
         Extract structured receipt data directly using Gemini's multimodal API.
         Does NOT create a chat — just calls the AI model with the file.
         """
-        # Normalize MIME type
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
         
@@ -91,12 +88,10 @@ class AIService:
         """
 
         try:
-            # Create a very concise prompt to save tokens
             schema_prompt = f"""Extract receipt data as JSON:
                                 {json.dumps(schema, indent=2)}
                                 Return ONLY valid JSON."""
 
-            # Send file directly to Gemini via multimodal API
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=[
@@ -112,17 +107,13 @@ class AIService:
                 )
             )
 
-            # Check if response exists
             if response is None:
                 return {"items": [], "error": "Gemini returned None response"}
             
-            # Try to extract text from response
             response_text = None
             
-            # First try direct text attribute
             if hasattr(response, 'text') and response.text:
                 response_text = response.text
-            # If that fails, try candidates array
             elif hasattr(response, 'candidates') and response.candidates:
                 for candidate in response.candidates:
                     if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
@@ -134,25 +125,22 @@ class AIService:
                         break
             
             if response_text is None:
-                # Get finish_reason from candidates for debugging
                 finish_reason = "unknown"
                 if hasattr(response, 'candidates') and response.candidates:
                     finish_reason = getattr(response.candidates[0], 'finish_reason', 'unknown')
                 return {"items": [], "error": f"Gemini returned no text. Finish reason: {finish_reason}"}
 
-            # Parse JSON response
             response_text = response_text.strip()
             if not response_text:
                 return {"items": [], "error": "Gemini returned empty text (after stripping)"}
             
-            # Remove markdown code block wrapping if present
             if response_text.startswith("```json"):
-                response_text = response_text[7:]  # Remove ```json
+                response_text = response_text[7:]
             elif response_text.startswith("```"):
-                response_text = response_text[3:]  # Remove ```
+                response_text = response_text[3:]
             
             if response_text.endswith("```"):
-                response_text = response_text[:-3]  # Remove trailing ```
+                response_text = response_text[:-3]
             
             response_text = response_text.strip()
             
@@ -160,7 +148,6 @@ class AIService:
             return structured_data
 
         except json.JSONDecodeError as e:
-            # Return more diagnostic info about the failed text
             return {"items": [], "error": f"Failed to parse AI output as JSON: {str(e)}. Text preview: {response_text[:100] if response_text else 'EMPTY'}"}
         except Exception as e:
             import traceback
@@ -168,9 +155,8 @@ class AIService:
     
     @observe()
     def web_search(self, query: str) -> dict:
-        """Search the web for recipes and cooking info using specific trusted sources."""
+        """Search the web for recipes using trusted sources."""
 
-        # Define your trusted domains
         trusted_sources = [
             "tudogostoso.com.br", "feed.continente.pt", "auchaneeu.auchan.pt",
             "pingodoce.pt", "receitaslidl.pt", "allrecipes.com",
@@ -178,30 +164,27 @@ class AIService:
             "bbcgoodfood.com"
         ]
         
-        # Build a search query that limits results to these sites
         site_filter = " OR ".join([f"site:{site}" for site in trusted_sources])
-        search_query = f"{query} ({site_filter})"
+        full_query = f"{query} ({site_filter})"
 
         print(f"[Searching Trusted Sources: {query}]")
 
         response = self.client.models.generate_content(
             model=self.model,
-            contents=search_query, # We send the specific filtered query here
+            contents=full_query,
             config=types.GenerateContentConfig(
-                tools=[{"google_search": {}}, {"url_context": {}}],
+                tools=[{"google_search": {}}],
                 temperature=0.0,
-                # Use a specific instruction for the search tool itself
-                system_instruction="Find the most relevant recipe or cooking information from the provided trusted websites."
             )
         )
 
-        sources = []
+        source_text = "\n\nVERIFIED SOURCES FOUND:"
         metadata = response.candidates[0].grounding_metadata
         if metadata and metadata.grounding_chunks:
-            sources = [{"title": c.web.title, "url": c.web.uri}
-                       for c in metadata.grounding_chunks]
+            for chunk in metadata.grounding_chunks:
+                source_text += f"\n- {chunk.web.title}: {chunk.web.uri}"
         
-        return {"answer": response.text, "sources": sources}
+        return {"answer": response.text + source_text}
 
     @observe()
     def save_research_note(self, topic: str, summary: str) -> dict:
@@ -220,8 +203,6 @@ class AIService:
         shoppingwriter = ShoppingListWriter(auth)
         cooking_assistant = CookingAssistant()
 
-        # 2. Define the list of custom tools
-        # Ensure these objects (ingredientchecker, userchecker, etc.) are initialized
         tools = [
             self.web_search,
             self.save_research_note,
@@ -231,11 +212,11 @@ class AIService:
             pantrywriter.add_items,
             recipewriter.add_recipes,
             shoppingwriter.add_shopping_items,
+            shoppingwriter.remove_item,
             recipechecker.recent_recipe_names,
             cooking_assistant.advise,
         ]
 
-        # Put everything inside the config
         config = types.GenerateContentConfig(
             tools=tools,
             system_instruction=self.system_instruction,
@@ -243,249 +224,55 @@ class AIService:
             max_output_tokens=self.max_output_tokens,
         )
 
-        return self.client.chats.create(model=self.model, config=config)
+        chat = self.client.chats.create(model=self.model, config=config)
+        chat.pending_meal_plan = PendingMealPlan()
+        return chat
     
     @observe()
-    def send_message(self, chat, prompt: str):
+    def send_message(self, chat, prompt: str, max_retries: int = 3):
         """Send a message and wait for the final text response."""
-        response = chat.send_message(prompt)
         
-        # If the SDK is calling tools, response.text will eventually 
-        # contain the final recipe after the tools return their data.
-        if response.text:
-            return response.text
-            
-        # If it's still None, it means the model is ONLY calling tools 
-        # and hasn't generated a verbal response yet.
-        return "I'm checking your ingredients and looking for recipes... ask me again in a moment!"
+        plan = getattr(chat, "pending_meal_plan", None)
 
-    ###############################
-    ######### O NOSSO!!!! #########
-    ###############################
+        if plan and (plan.awaiting_approval or plan.meals):
+            result = handle_meal_plan_flow(chat, prompt)
 
-    # # --- Tool Definition (Function Calling) ---
-    # def fetch_url_content(self, url: str) -> str:
-    #     """
-    #     Fetches the plaintext content of a specific public URL.
-    #     Use this tool when the user provides a link and asks for a summary or details.
-
-    #     Args:
-    #         url: The complete URL (e.g., 'https://www.mysite.com/recipe') to fetch content from.
+            # If meal planner handled it, return immediately
+            if result is not None:
+                return result
         
-    #     Returns:
-    #         The raw text content of the page, or a simple error message if inaccessible.
-    #     """
-    #     print(f"Executing Tool: fetch_url_content for {url}")
-    #     try:
-    #         # Simple request to fetch the content with a timeout
-    #         response = requests.get(url, timeout=30)
-    #         response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-            
-    #         # Use BeautifulSoup to get clean text from the HTML, which is better for the model
-    #         soup = BeautifulSoup(response.content, 'html.parser')
-    #         # Return a max of 4000 characters of clean text to avoid hitting context limits
-    #         return soup.get_text()[:4000]
-    #     except requests.exceptions.RequestException as e:
-    #         return f"Error fetching URL content: {e}"
+        print(max_retries)
+        for attempt in range(max_retries):
+            try:
+                response = chat.send_message(prompt)
+        
+                """ if response.text:
+                    return response.text"""
+        
+                if hasattr(response, "candidates"):
+                    for candidate in response.candidates:
+                        if hasattr(candidate, "content"):
+                            for part in candidate.content.parts:
+                                if hasattr(part, "text") and part.text:
+                                    return part.text    
 
-    # def create_chat(self, auth: AuthService):
-    #     """Create a new chat session."""
-    #     ingredientchecker = PantryChecker(auth)
-    #     userchecker = UserChecker(auth)
-    #     pantrywriter = PantryWriter(auth)
-    #     recipewriter = RecipeWriter(auth)
-    #     shoppingwriter = ShoppingListWriter(auth)
-    #     recipechecker = RecipeChecker(auth)
+                return "I'm checking your ingredients and looking for recipes... ask me again in a moment!"
 
-    #     return self.client.chats.create(
-    #                 model=self.model,
-    #                 config = {
-    #                     'temperature': self.temperature,
-    #                     'max_output_tokens': int(self.max_output_tokens),
-    #                     'system_instruction': str(self.system_instruction), 
-    #                     'tools' : [
-    #                         # self.fetch_url_content, 
-    #                                ingredientchecker.available_ingredients,
-    #                                userchecker.identify_user,
-    #                                userchecker.preferences,
-    #                                pantrywriter.add_items,
-    #                                recipewriter.add_recipes,
-    #                                shoppingwriter.add_shopping_items,
-    #                                recipechecker.recent_recipes,
-    #                                ]
-    #                 }, 
-    #     )
+            except ServiceUnavailable:
+                wait_time = 2 ** attempt
+                print(
+                    f"[Gemini overloaded] Retry {attempt + 1}/{max_retries} in {wait_time}s"
+                )
+                time.sleep(wait_time)
+
+        return "🚦 SmartBites is currently busy. Please try again in a minute."
     
-    # def create_chat(self, auth: AuthService):
-    #     ingredientchecker = PantryChecker(auth)
-    #     userchecker = UserChecker(auth)
-    #     pantrywriter = PantryWriter(auth)
-    #     recipewriter = RecipeWriter(auth)
-    #     recipechecker = RecipeChecker(auth)
-    #     shoppingwriter = ShoppingListWriter(auth)
-    #     search_tool = Search()
-    #     cooking_assistant = CookingAssistant()
-
-    #     # Define tools as JSON schemas (no callables)
-    #     tools = [
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "available_ingredients",
-    #                 "description": "Check user's pantry ingredients",
-    #                 "parameters": {"type": "object", "properties": {}},
-    #             },
-    #         },
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "identify_user",
-    #                 "description": "Identify the user",
-    #                 "parameters": {"type": "object", "properties": {}},
-    #             },
-    #         },
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "preferences",
-    #                 "description": "Get user preferences",
-    #                 "parameters": {"type": "object", "properties": {}},
-    #             },
-    #         },
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "add_items",
-    #                 "description": "Add items to pantry",
-    #                 "parameters": {
-    #                     "type": "object",
-    #                     "properties": {"items": {"type": "array", "items": {"type": "string"}}},
-    #                 },
-    #             },
-    #         },
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "search",
-    #                 "description": "Search recipes or fetch URL content",
-    #                 "parameters": {
-    #                     "type": "object",
-    #                     "properties": {
-    #                         "recipe_name": {"type": "string"},
-    #                         "query": {"type": "string"},
-    #                         "urls": {"type": "array", "items": {"type": "string"}},
-    #                     },
-    #                 },
-    #             },
-    #         },
-    #         {
-    #             "type": "function",
-    #             "function": {
-    #                 "name": "cooking_advice",
-    #                 "description": "Signals cooking-assistant mode and provides structured cooking context for the model to reason over.",
-    #                 "parameters": {
-    #                     "type": "object",
-    #                     "properties": {
-    #                         "food": {
-    #                             "type": "string",
-    #                             "description": "The food being cooked (e.g. steak, chicken, salmon)"
-    #                         },
-    #                         "method": {
-    #                             "type": "string",
-    #                             "description": "Cooking method (pan, grill, oven, boil, bake, fry)"
-    #                         },
-    #                         "goal": {
-    #                             "type": "string",
-    #                             "description": "Desired outcome (e.g. medium, fully cooked, crispy)"
-    #                         },
-    #                         "thickness_cm": {
-    #                             "type": "number"
-    #                         },
-    #                         "weight_g": {
-    #                             "type": "number"
-    #                         },
-    #                         "heat": {
-    #                             "type": "string"
-    #                         },
-    #                         "state": {
-    #                             "type": "object"
-    #                         }
-    #                     },
-    #                     "required": ["food", "goal", "method"]
-    #                 }
-    #             }
-    #         }
-    #     ]
-
-    #     # Map tool names to your actual Python functions
-    #     self.tool_registry = {
-    #         "available_ingredients": ingredientchecker.available_ingredients,
-    #         "identify_user": userchecker.identify_user,
-    #         "preferences": userchecker.preferences,
-    #         "add_items": pantrywriter.add_items,
-    #         "add_recipes": recipewriter.add_recipes,
-    #         "add_shopping_items": shoppingwriter.add_shopping_items,
-    #         "recent_recipes": recipechecker.recent_recipes,
-    #         "search": search_tool.run,
-    #         "cooking_advice": cooking_assistant.advise,
-    #     }
-
-    #     # Create chat (AI only sees schemas)
-    #     return self.client.chats.create(
-    #         model=self.model,
-    #         config={
-    #             "temperature": self.temperature,
-    #             "max_output_tokens": int(self.max_output_tokens),
-    #             "system_instruction": str(self.system_instruction),
-    #             "tools": tools,  # JSON schemas only
-    #         },
-    #     )
-
-    # # Wrapper function that internally uses Google Search
-    # def web_search(self, query: str) -> dict:
-    #     """Search the web for current information."""
-
-    #     print(f"[Searching: {query}]")
-
-    #     response = self.client.models.generate_content(
-    #         model = self.model,
-    #         contents = f"Search for: {query}",
-    #         config=types.GenerateContentConfig(
-    #             tools=[{"google_search": {}},
-    #                    {"url_context: {}"}],
-    #             temperature=0.0,
-    #             system_instruction=self.system_instruction,
-    #             )
-    #         )
-        
-    #     # Extract sources if available
-    #     sources = []
-    #     metadata = response.candidates[0].grounding_metadata
-    #     if metadata and metadata.grounding_chunks:
-    #         sources = [{"title": c.web.title, "url": c.web.uri}
-    #                             for c in metadata.grounding_chunks]
-    #     print(sources)
-    #     return {"answer": response.text, "sources": sources}
-
-
-        # # 3. Configure the session
-        # config = types.GenerateContentConfig(
-        #     tools=tools,
-        #     system_instruction=system_prompt
-        # )
-
-        # # 4. Generate content
-        # response = self.client.models.generate_content(
-        #     model=self.model,
-        #     contents="Check what ingredients I have and suggest a recipe I've made recently.",
-        #     config=config
-        # )
-        
-        # print(response.text)
-
+    # @observe()
     # def send_message(self, chat, prompt: str):
-    #     """Send a message to an existing chat."""
-    #     return chat.send_message(prompt)
-
-
+    #     """Send a message and wait for the final text response."""
+    #     response = chat.send_message(prompt)
         
+    #     if response.text:
+    #         return response.text
+            
+    #     return "I'm sorry, I couldn't process that request. Could you try again?"

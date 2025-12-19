@@ -1,118 +1,112 @@
-
-from typing import List
+import logging
+from typing import List, Dict, Optional, TypedDict
 from langfuse import observe
 from src.authentication import AuthService
 from src.db.client import supabase
 
+logger = logging.getLogger(__name__)
+
+class ShoppingItem(TypedDict):
+    ingredient_name: str
+    quantity: float
 
 class ShoppingListWriter:
-    """Insert or update shopping list items, respecting duplicates."""
-
+    
     def __init__(self, auth: AuthService):
         self.user_id = auth.get_user_id()
         if not self.user_id:
             raise ValueError("User must be authenticated.")
 
-    # ---------------- Check if item exists ----------------
-    def item_exists(self, ingredient_name: str) -> dict | None:
-        """Return the existing row if present, otherwise None."""
-        res = (
-            supabase.table("shopping_list")
-            .select("*")
-            .eq("user_id", self.user_id)
-            .eq("ingredient_name", ingredient_name)
-            .limit(1)
-            .execute()
-        )
-        return res.data[0] if res.data else None
-
-    # ---------------- Add Items ----------------
     @observe()
     def add_shopping_items(
         self,
-        items: List[dict],
+        items: List[ShoppingItem],
         user_approval: bool = False,
         merge_if_exists: bool = True,
-    ) -> dict:
+    ) -> Dict[str, list]:
         """
-        Insert items to shopping_list, respecting duplicates.
-
-        Parameters
-        ----------
-        items : [{ingredient_name, quantity}]
-        user_approval : bool
-            Insert only after explicit approval.
-        merge_if_exists : bool
-            If True: increase quantity on duplicate.
-            If False: skip duplicates.
-
-        Returns
-        -------
-        dict: {inserted:[...], updated:[...], skipped:[...]}
+        Adds multiple items to the shopping list. 
+        Expected format for 'items': [{"ingredient_name": "apple", "quantity": 2}, ...]
         """
-
         if not user_approval:
-            print("Not inserted — waiting for explicit approval.")
+            logger.info("Operation aborted: User approval required.")
             return {"inserted": [], "updated": [], "skipped": []}
 
-        inserted, updated, skipped = [], [], []
+        # Safety Check: Ensure 'items' is a list to prevent 'AddShoppingItemsItems' errors
+        if not isinstance(items, list):
+            logger.error(f"Invalid input: expected list of items, got {type(items)}")
+            return {"inserted": [], "updated": [], "skipped": [], "error": "Invalid input format"}
 
-        for obj in items:
-            name = obj.get("ingredient_name")
-            qty = obj.get("quantity") or 1
+        # 1. Pre-fetch all current items to avoid N+1 queries
+        try:
+            current_list_res = (
+                supabase.table("shopping_list")
+                .select("id", "ingredient_name", "quantity")
+                .eq("user_id", self.user_id)
+                .execute()
+            )
+            existing_map = {row["ingredient_name"]: row for row in current_list_res.data}
+        except Exception as e:
+            logger.error(f"Database error during pre-fetch: {e}")
+            return {"inserted": [], "updated": [], "skipped": [], "error": str(e)}
 
+        results = {"inserted": [], "updated": [], "skipped": []}
+        to_insert = []
+
+        for item in items:
+            # Handle potential missing keys if LLM sends malformed dicts
+            name = item.get("ingredient_name")
+            qty = item.get("quantity", 1)
+            
             if not name:
-                print("Skipping entry: missing ingredient_name.")
                 continue
 
-            existing = self.item_exists(name)
-
-            # ----------------------------------------------
-            # Case 1 — item exists
-            # ----------------------------------------------
-            if existing:
-
+            if name in existing_map:
                 if merge_if_exists:
-                    new_qty = (existing["quantity"] or 0) + qty
+                    new_qty = (existing_map[name].get("quantity") or 0) + qty
                     try:
-                        supabase.table("shopping_list") \
-                            .update({"quantity": new_qty}) \
-                            .eq("id", existing["id"]) \
+                        res = (
+                            supabase.table("shopping_list")
+                            .update({"quantity": new_qty})
+                            .eq("id", existing_map[name]["id"])
                             .execute()
-                        updated.append({"id": existing["id"], "ingredient_name": name, "quantity": new_qty})
-                        print(f"Updated '{name}' → quantity {new_qty}")
+                        )
+                        if res.data:
+                            results["updated"].append(res.data[0])
                     except Exception as e:
-                        print(f"Error updating '{name}': {e}")
-
+                        logger.error(f"Error updating {name}: {e}")
                 else:
-                    skipped.append(name)
-
-                continue
-
-            # ----------------------------------------------
-            # Case 2 — fresh insert
-            # ----------------------------------------------
-            record = {
-                "ingredient_name": name,
-                "quantity": qty,
-                "user_id": self.user_id,
-            }
-
-            try:
-                res = (
-                    supabase.table("shopping_list")
-                    .insert(record, returning="representation")
-                    .execute()
-                )
-            except Exception as e:
-                print(f"Error inserting '{name}': {e}")
-                continue
-
-            if res.data and len(res.data) > 0:
-                record["id"] = res.data[0]["id"]
-                inserted.append(record)
-                print(f"Added to shopping list: {name} (qty: {qty}, id: {record['id']})")
+                    results["skipped"].append(name)
             else:
-                print(f"Inserted '{name}' but no ID returned.")
+                to_insert.append({
+                    "ingredient_name": name,
+                    "quantity": qty,
+                    "user_id": self.user_id
+                })
 
-        return {"inserted": inserted, "updated": updated, "skipped": skipped}
+        # 2. Bulk Insert new items
+        if to_insert:
+            try:
+                res = supabase.table("shopping_list").insert(to_insert).execute()
+                if res.data:
+                    results["inserted"].extend(res.data)
+            except Exception as e:
+                logger.error(f"Error during bulk insert: {e}")
+
+        return results
+
+    def remove_item(self, item_id: int) -> bool:
+        """Removes item and returns success status."""
+        try:
+            res = (
+                supabase.table("shopping_list")
+                .delete()
+                .eq("id", item_id)
+                .eq("user_id", self.user_id)
+                .execute()
+            )
+            return len(res.data) > 0
+        except Exception as e:
+            logger.error(f"Failed to delete item {item_id}: {e}")
+            return False
+        
