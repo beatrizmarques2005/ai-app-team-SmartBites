@@ -1,11 +1,9 @@
-"""Profile Service - Handle user profile operations"""
 from typing import Dict, Any, Optional
 from ..db.client import supabase
 from ..authentication import AuthService
 
 
 class UserWriter:
-    """Service for managing user profiles"""
     
     def __init__(self, auth: AuthService):
         self.user_id = auth.get_user_id()
@@ -44,10 +42,6 @@ class UserWriter:
             diet_type = []
         if cuisine_type is None:
             cuisine_type = []
-        
-        # Filter out "None" from lists
-        restrictions = [r for r in restrictions if r != "None"]
-        diet_type = [d for d in diet_type if d != "None"]
         
         update_data = {
             'full_name': full_name,
