@@ -83,8 +83,8 @@ def chat_page():
                     with st.spinner("SmartBites is cooking..."):
                         try:
                             response = st.session_state.ai.send_message(st.session_state.chat, prompt)
-                            st.markdown(response.text)
-                            st.session_state.messages.append({"role": "assistant", "content": response.text})
+                            st.markdown(response)
+                            st.session_state.messages.append({"role": "assistant", "content": response})
                         except Exception as e:
                             st.error(f"Error: {e}")
 
