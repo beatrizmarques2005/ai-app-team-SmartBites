@@ -14,7 +14,7 @@ from typing import Optional, List, Dict, Any
 logger = logging.getLogger(__name__)
 
 
-def seasonal_finder(recipes: List[Dict[str, Any]], season: str=None) -> Dict[str, Any]:
+def seasonal_finder(recipes: List[Dict[str, Any]] | None, season: str=None) -> Dict[str, Any]:
     """
     Detect season, annotate recipes with match, and return a seasonal prompt.
     If 'season' is not passed, determines season based on today's date.
@@ -41,6 +41,7 @@ def seasonal_finder(recipes: List[Dict[str, Any]], season: str=None) -> Dict[str
     seasonal_prompt = prompts.get(season, "No specific season detected")
 
     annot = []
+    recipes = recipes or []
     for recipe in recipes:
         title = (recipe.get("title") or "").lower()
         match = season in title
