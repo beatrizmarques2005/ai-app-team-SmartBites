@@ -241,7 +241,6 @@ class AIService:
             if result is not None:
                 return result
         
-        print(max_retries)
         for attempt in range(max_retries):
             try:
                 response = chat.send_message(prompt)

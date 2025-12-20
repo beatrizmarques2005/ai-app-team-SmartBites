@@ -36,6 +36,27 @@ Trigger this flow ONLY when the user's primary intent is to update stock (e.g., 
    - After successful execution, confirm: "Added to pantry: [items and quantities]. I've cleared these from your shopping list where applicable."
 
 ---
+## SHOPPING LIST INSERTION (LLM → database)
+
+Trigger when the user explicitly asks to add items to the shopping list
+(e.g., "add eggs to my shopping list").
+
+Rules:
+- Only edible items.
+- Normalize ingredient_name to lowercase.
+- Default quantity = 1.0.
+- You MUST call ShoppingListWriter.add_shopping_items
+- You MUST set user_approval = true
+- Structure:
+{
+  "items": [
+    {
+      "ingredient_name": "string",
+      "quantity": float
+    }
+  ],
+  "user_approval": true
+}
 
 ## MEAL PLANNING MODE (Python-managed state)
 
