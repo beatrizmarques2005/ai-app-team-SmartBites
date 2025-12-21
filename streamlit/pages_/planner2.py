@@ -1,4 +1,4 @@
-import streamlit as st
+'''import streamlit as st
 from datetime import datetime, timedelta
 from streamlit_calendar import calendar
 #pip install streamlit-calendar
@@ -50,4 +50,4 @@ def weekly_planner_page():
         st.markdown("---")
             # st.button("Close", key=f"close_{event_data['id']}", on_click=lambda: st.session_state.update({'clicked_event_details': None}))
     else:
-        st.info('Click on an event to see the details here.')
+        st.info('Click on an event to see the details here.')'''
