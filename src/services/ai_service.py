@@ -179,10 +179,11 @@ class AIService:
         )
 
         source_text = "\n\nVERIFIED SOURCES FOUND:"
-        metadata = response.candidates[0].grounding_metadata
-        if metadata and metadata.grounding_chunks:
-            for chunk in metadata.grounding_chunks:
-                source_text += f"\n- {chunk.web.title}: {chunk.web.uri}"
+        if response.candidates and len(response.candidates) > 0:
+            metadata = response.candidates[0].grounding_metadata
+            if metadata and hasattr(metadata, 'grounding_chunks') and metadata.grounding_chunks:
+                for chunk in metadata.grounding_chunks:
+                    source_text += f"\n- {chunk.web.title}: {chunk.web.uri}"
         
         return {"answer": response.text + source_text}
 
@@ -249,9 +250,9 @@ class AIService:
                 """ if response.text:
                     return response.text"""
         
-                if hasattr(response, "candidates"):
+                if hasattr(response, "candidates") and response.candidates:
                     for candidate in response.candidates:
-                        if hasattr(candidate, "content"):
+                        if hasattr(candidate, "content") and candidate.content and hasattr(candidate.content, "parts") and candidate.content.parts:
                             for part in candidate.content.parts:
                                 if hasattr(part, "text") and part.text:
                                     return part.text    

@@ -5,8 +5,8 @@ maxUploadSize = 500
 
 [theme]
 
-primaryColor = "#1c83e1"
-backgroundColor = "#def6d8ff"
+primaryColor = "#f5b77dff"
+backgroundColor = "#e7f5e3ff"
 secondaryBackgroundColor = "#effaebff"
 textColor = "#31333f"
 
@@ -25,16 +25,13 @@ linkUnderline = true
 codeTextColor = "#21c354"
 codeBackgroundColor = "#f0f0f0"
 
-font = "serif"
-baseFontSize = 16
-baseFontWeight = 400
-headingFont = "manrope"
-headingFontSizes = ["2.75rem", "2.25rem", "1.75rem", "1.5rem", "1.25rem", "1rem"]
-headingFontWeights = [700, 600, 600, 600, 600, 600]
 
-codeFont = "monospace"
-codeFontSize = "0.875rem"
-codeFontWeight = 400
+
+font="Urbanist:https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600&display=swap"
+headingFont="Urbanist:https://fonts.googleapis.com/css2?family=Urbanist:wght@800&display=swap"
+
+
+
 
 baseRadius = "0.5rem"
 buttonRadius = "0.5rem"

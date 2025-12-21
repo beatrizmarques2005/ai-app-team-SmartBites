@@ -21,14 +21,15 @@ load_dotenv()
 def chat_page():
     st.set_page_config(
         page_title="SmartBites | Chat Bot",
-        page_icon="🤖",
+        page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/robot.svg",
         layout="centered"
     )
 
     if "user_id" not in st.session_state or not st.session_state.user_id:
         st.switch_page("login.py")
 
-    st.title("🤖 SmartBites Chat Bot")
+    # st.title("🤖 SmartBites Chat Bot")
+    st.title("SmartBites | Chat Bot")
     st.markdown("Ask me anything about recipes, ingredients, or cooking tips!")
     
     # user_id = st.session_state.get("user_id")
@@ -55,7 +56,7 @@ def chat_page():
         # 1. Create a container with a fixed height.
         # This box will scroll once messages fill it up.
         # Height can be adjusted (e.g., 500 or 600) to fit your screen.
-        chat_container = st.container(height=500, border=False)
+        chat_container = st.container(height=300, border=False)
 
         # 2. Render messages INSIDE the container
         with chat_container:
