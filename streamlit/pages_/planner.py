@@ -84,16 +84,22 @@ def weekly_planner_page():
     with nav_col1:
         if st.button(":material/arrow_back:", key="prev", use_container_width=True):
             st.session_state.week_offset -= 1
+            st.session_state.selected_recipe = None
+            st.session_state.dialog_open = False
             st.rerun()
             
     with nav_col2:
         if st.button("This Week", use_container_width=True):
             st.session_state.week_offset = 0
+            st.session_state.selected_recipe = None
+            st.session_state.dialog_open = False
             st.rerun()
             
     with nav_col3:
         if st.button(":material/arrow_forward:", key="next", use_container_width=True):
             st.session_state.week_offset += 1
+            st.session_state.selected_recipe = None
+            st.session_state.dialog_open = False
             st.rerun()
 
     with nav_col4:
@@ -101,6 +107,8 @@ def weekly_planner_page():
         if selected_date != st.session_state.date_search:
             st.session_state.date_search = selected_date
             st.session_state.week_offset = (start_of_week(selected_date) - start_of_week(datetime.today().date())).days // 7
+            st.session_state.selected_recipe = None
+            st.session_state.dialog_open = False
             st.rerun()
 
     st.markdown("")
@@ -206,8 +214,9 @@ def weekly_planner_page():
                     # with st.container(border=True):
                     #     st.caption(f"ID: {e.get('meal_type', 'Meal')}")
                     if st.button(e["title"], key=f"btn-{day}-{e['title']}", use_container_width=True):
-                        st.session_state.selected_event = e
-                            # st.rerun()
+                        st.session_state.selected_recipe = e
+                        st.session_state.dialog_open = False
+                        st.rerun()
 
 
 
@@ -234,20 +243,21 @@ def weekly_planner_page():
                 #         st.rerun()
 
     # ---------- Recipe popup ----------
-    if st.session_state.selected_recipe:
+    if st.session_state.get("selected_recipe") and not st.session_state.get("dialog_open", False):
+        st.session_state.dialog_open = True
         recipe = st.session_state.selected_recipe
 
         @st.dialog("Recipe Details")
         def show_event_dialog():
             import re
             
-            st.subheader(f"🍴 {event['title']}")
-            st.markdown(f"**Meal Type:** {event.get('meal_type', 'Unknown')}")
-            st.markdown(f"**Date:** {event['date']}")
+            st.subheader(f"🍴 {recipe['title']}")
+            st.markdown(f"**Meal Type:** {recipe.get('meal_type', 'Unknown')}")
+            st.markdown(f"**Date:** {recipe['date']}")
             
             # Display ingredients as bullet points
             st.markdown(f"**Ingredients:**")
-            ingredients = event.get('ingredients')
+            ingredients = recipe.get('ingredients')
             if ingredients:
                 if isinstance(ingredients, str):
                     # Parse string ingredients
@@ -264,7 +274,7 @@ def weekly_planner_page():
             st.markdown(f"**Instructions:**")
             
             # Parse and display instructions as numbered steps
-            instructions = event['details']
+            instructions = recipe['details']
             
             # Split by pattern like "1. ", "2. ", etc.
             steps = re.split(r'\d+\.\s+', instructions)
@@ -276,7 +286,14 @@ def weekly_planner_page():
             for i, step in enumerate(steps, 1):
                 st.markdown(f"• **Step {i}:** {step}")
             
-            if event.get('link'):
-                st.markdown(f"**[View Recipe Link]({event['link']})**")
+            if recipe.get('link'):
+                st.markdown(f"**[View Recipe Link]({recipe['link']})**")
+
+            # Close button to clear state and prevent auto re-open
+            if st.button("Close"):
+                st.session_state.selected_recipe = None
+                st.session_state.dialog_open = False
+                st.rerun()
 
         show_event_dialog()
+        
