@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 from auth_.login import login_page
 from auth_.signup import signup_page
 from pages_.profile import profile_page
@@ -48,25 +49,48 @@ if not st.session_state['logged_in']:
 
 
 
-if st.sidebar.button('Profile', type = 'tertiary'):
-    st.session_state['current_page'] = 'profile'
-if st.sidebar.button('Chat', type = 'tertiary'):
-    st.session_state['current_page'] = 'chat'
-if st.sidebar.button('Planner', type = 'tertiary'):
-    st.session_state['current_page'] = 'planner'
-if st.sidebar.button('Pantry', type = 'tertiary'):
-    st.session_state['current_page'] = 'pantry'
-if st.sidebar.button('Recipes', type = 'tertiary'):
-    st.session_state['current_page'] = 'recipes'
+# if st.sidebar.button('Profile', type = 'tertiary'):
+#     st.session_state['current_page'] = 'profile'
+# if st.sidebar.button('Chat', type = 'tertiary'):
+#     st.session_state['current_page'] = 'chat'
+# if st.sidebar.button('Planner', type = 'tertiary'):
+#     st.session_state['current_page'] = 'planner'
+# if st.sidebar.button('Pantry', type = 'tertiary'):
+#     st.session_state['current_page'] = 'pantry'
+# if st.sidebar.button('Recipes', type = 'tertiary'):
+#     st.session_state['current_page'] = 'recipes'
 
 
 
-st.sidebar.empty().write("")  # Add some space
 
-if st.sidebar.button('Logout'):
-        auth.logout()
-        st.session_state.clear()
-        st.rerun()
+with st.sidebar:
+    st.image("smartbites_logo-removebg-preview.png", use_container_width=True)
+    st.header("SmartBites")
+    st.markdown("__________")
+    # st.divider()
+    selected = option_menu(
+        menu_title= None, 
+        # menu_icon= None, 
+        options=["Profile", "Chat", "Planner", "Pantry", "Recipes"],
+        icons = ["person", "robot", "calendar-week", "basket", "book"],
+        default_index=1,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#555", "font-size": "20px"}, 
+            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#eee"},
+            "nav-link-selected": {"background-color": "#e2e2d5", "color": "black"}, # The "pill" effect
+        }
+    )
+
+page_map = {
+    "Profile": "profile",
+    "Chat": "chat",
+    "Planner": "planner",
+    "Pantry": "pantry",
+    "Recipes": "recipes"
+}
+
+st.session_state['current_page'] = page_map[selected]
 
 if st.session_state['current_page'] == 'profile':
     profile_page()
@@ -79,3 +103,15 @@ elif st.session_state['current_page'] == 'pantry':
 elif st.session_state['current_page'] == 'recipes':
     recipes_page()
     
+
+
+
+
+
+st.sidebar.empty().write("")  # Add some space
+
+if st.sidebar.button('Logout'):
+        auth.logout()
+        st.session_state.clear()
+        st.rerun()
+

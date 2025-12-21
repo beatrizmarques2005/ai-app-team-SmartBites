@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Optional, TypedDict
+from typing import List, Dict, Optional, TypedDict, Any
 from langfuse import observe
 from src.authentication import AuthService
 from src.db.client import supabase
@@ -20,8 +20,8 @@ class ShoppingListWriter:
     """@observe()
     def add_shopping_items(
         self,
-        items, #List[ShoppingItem],
-        user_approval: bool = False,
+        items: List[Dict[str, object]],
+        user_approval: bool = True,
         merge_if_exists: bool = True,
     ) -> Dict[str, list]:
         '''
@@ -50,7 +50,7 @@ class ShoppingListWriter:
                 .eq("user_id", self.user_id)
                 .execute()
             )
-            existing_map = {row["ingredient_name"]: row for row in current_list_res.data}
+            existing_map = {row["ingredient_name"].lower(): row for row in current_list_res.data}
         except Exception as e:
             logger.error(f"Database error during pre-fetch: {e}")
             return {"inserted": [], "updated": [], "skipped": [], "error": str(e)}
