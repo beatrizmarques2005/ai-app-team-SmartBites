@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 from io import BytesIO
+from datetime import datetime
 
 import google.genai as genai
 from google.genai import types
@@ -75,23 +76,13 @@ class AIService:
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
         
-        RECEIPT_EXTRACTION_RULES = """
-        You are extracting structured data from a supermarket receipt.
-
-        Rules:
-        - For each item, determine whether it is edible.
-        - Edible items are food or beverages intended for human consumption.
-        - Non-edible items include cleaning products, hygiene items, household supplies,
-        batteries, utensils, paper goods, and similar products.
-        - If you are unsure whether an item is edible, set is_edible = false.
-        - Every item MUST include an is_edible boolean.
-        """
-
         try:
+            # Create a very concise prompt to save tokens
             schema_prompt = f"""Extract receipt data as JSON:
-                                {json.dumps(schema, indent=2)}
-                                Return ONLY valid JSON."""
+                            {json.dumps(schema, indent=2)}
+                            Return ONLY valid JSON."""
 
+            # Send file directly to Gemini via multimodal API
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=[
@@ -103,17 +94,21 @@ class AIService:
                 ],
                 config=genai.types.GenerateContentConfig(
                     temperature=self.temperature,
-                    max_output_tokens=self.max_output_tokens,
+                    max_output_tokens=8000  # Increased to 8000 to ensure enough tokens
                 )
             )
 
+            # Check if response exists
             if response is None:
                 return {"items": [], "error": "Gemini returned None response"}
             
+            # Try to extract text from response
             response_text = None
             
+            # First try direct text attribute
             if hasattr(response, 'text') and response.text:
                 response_text = response.text
+            # If that fails, try candidates array
             elif hasattr(response, 'candidates') and response.candidates:
                 for candidate in response.candidates:
                     if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
@@ -125,34 +120,38 @@ class AIService:
                         break
             
             if response_text is None:
+                # Get finish_reason from candidates for debugging
                 finish_reason = "unknown"
                 if hasattr(response, 'candidates') and response.candidates:
                     finish_reason = getattr(response.candidates[0], 'finish_reason', 'unknown')
                 return {"items": [], "error": f"Gemini returned no text. Finish reason: {finish_reason}"}
 
+            # Parse JSON response
             response_text = response_text.strip()
             if not response_text:
                 return {"items": [], "error": "Gemini returned empty text (after stripping)"}
             
+            # Remove markdown code block wrapping if present
             if response_text.startswith("```json"):
-                response_text = response_text[7:]
+                response_text = response_text[7:]  # Remove ```json
             elif response_text.startswith("```"):
-                response_text = response_text[3:]
+                response_text = response_text[3:]  # Remove ```
             
             if response_text.endswith("```"):
-                response_text = response_text[:-3]
+                response_text = response_text[:-3]  # Remove trailing ```
             
             response_text = response_text.strip()
             
             structured_data = json.loads(response_text)
             return structured_data
-
+        
         except json.JSONDecodeError as e:
+            # Return more diagnostic info about the failed text
             return {"items": [], "error": f"Failed to parse AI output as JSON: {str(e)}. Text preview: {response_text[:100] if response_text else 'EMPTY'}"}
         except Exception as e:
             import traceback
             return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
-    
+
     @observe()
     def web_search(self, query: str) -> dict:
         """Search the web for recipes using trusted sources."""
@@ -196,6 +195,15 @@ class AIService:
     @observe()
     def create_chat(self, auth: AuthService):
 
+        # Get the current date and time
+        current_date = datetime.now().strftime("%A, %B %d, %Y")
+        
+        # Append the date to your system instruction
+        dynamic_instruction = (
+            f"Current Date: {current_date}\n\n"
+            f"{self.system_instruction}"
+        )
+
         ingredientchecker = PantryChecker(auth)
         userchecker = UserChecker(auth)
         pantrywriter = PantryWriter(auth)
@@ -213,6 +221,7 @@ class AIService:
             pantrywriter.add_items,
             recipewriter.add_recipes,
             shoppingwriter.add_shopping_items,
+            # add_shopping_items_llm,
             shoppingwriter.remove_item,
             recipechecker.recent_recipe_names,
             cooking_assistant.advise,
@@ -220,7 +229,7 @@ class AIService:
 
         config = types.GenerateContentConfig(
             tools=tools,
-            system_instruction=self.system_instruction,
+            system_instruction=dynamic_instruction,
             temperature=self.temperature,
             max_output_tokens=self.max_output_tokens,
         )
@@ -228,51 +237,39 @@ class AIService:
         chat = self.client.chats.create(model=self.model, config=config)
         chat.pending_meal_plan = PendingMealPlan()
         return chat
-    
+
     @observe()
     def send_message(self, chat, prompt: str, max_retries: int = 3):
-        """Send a message and wait for the final text response."""
-        
         plan = getattr(chat, "pending_meal_plan", None)
 
         if plan and (plan.awaiting_approval or plan.meals):
             result = handle_meal_plan_flow(chat, prompt)
-
-            # If meal planner handled it, return immediately
             if result is not None:
                 return result
-        
+
         for attempt in range(max_retries):
             try:
                 response = chat.send_message(prompt)
-        
-                """ if response.text:
-                    return response.text"""
-        
-                if hasattr(response, "candidates") and response.candidates:
-                    for candidate in response.candidates:
-                        if hasattr(candidate, "content") and candidate.content and hasattr(candidate.content, "parts") and candidate.content.parts:
-                            for part in candidate.content.parts:
-                                if hasattr(part, "text") and part.text:
-                                    return part.text    
 
-                return "I'm checking your ingredients and looking for recipes... ask me again in a moment!"
+                if response.text:
+                    return response.text
 
-            except ServiceUnavailable:
-                wait_time = 2 ** attempt
-                print(
-                    f"[Gemini overloaded] Retry {attempt + 1}/{max_retries} in {wait_time}s"
-                )
-                time.sleep(wait_time)
+                if response.candidates:
+                    candidate = response.candidates[0]
+                    if candidate.content and candidate.content.parts:
+                        return "".join([p.text for p in candidate.content.parts if getattr(p, "text", None)])
+
+
+                return "I'm processing that for you, one moment..."
+
+            except Exception as e:
+                if "503" in str(e) or "ServiceUnavailable" in str(e):
+                    wait_time = 2 ** attempt
+                    print(f"[Gemini overloaded] Retry {attempt + 1}/{max_retries} in {wait_time}s")
+                    time.sleep(wait_time)
+                    continue
+                print(f"Error during send_message: {e}")
+                return f"I encountered an error: {e}"
 
         return "🚦 SmartBites is currently busy. Please try again in a minute."
-    
-    # @observe()
-    # def send_message(self, chat, prompt: str):
-    #     """Send a message and wait for the final text response."""
-    #     response = chat.send_message(prompt)
-        
-    #     if response.text:
-    #         return response.text
-            
-    #     return "I'm sorry, I couldn't process that request. Could you try again?"
+
