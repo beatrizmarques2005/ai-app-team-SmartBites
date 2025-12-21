@@ -22,7 +22,6 @@ Key Features:
 import logging
 from typing import Optional, List, Dict, Any
 from io import BytesIO
-import json
 
 import filetype
 from langfuse import observe
