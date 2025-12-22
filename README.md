@@ -20,7 +20,7 @@
 
 <div style="border:2px solid #acc95b; padding: 15px; border-radius: 10px; background-color:#f9f9f9">
 
-<font color='#acc95b' size=5>**TABLE OF CONTENTS**</font> <a id='toc'></a>
+<font color='#acc95b' size=5>**TABLE OF CONTENTS**</font>
 
 - [OVERVIEW](#overview)
 - [PROJECT'S ARCHITECTURE](#projects-architecture)
