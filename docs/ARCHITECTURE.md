@@ -1,291 +1,253 @@
-# Team Project Architecture Plan
+# <font color="#acc95b" size=6>**PROJECT ARCHITECTURE**</font>
 
-**Team Name:** *SmartBites*  
-**Project Name:** *SmartBites*  
+<div style="border:2px solid #acc95b; padding: 15px; border-radius: 10px; background-color: #eef5dbff">
+
+**Team Name:** *SmartBites*
+
+**Project Name:** *SmartBites*
+
 **Team Members:**  
-1. Beatriz Marques - 20231605  
-2. Constança Pereira da Silva - 20231720  
-3. Maria Inês Santos - 20231630  
-4. Mariana Calais-Pedro - 20231641  
+- Beatriz Marques - 20231605  
+- Constança Pereira da Silva - 20231720 
+- Maria Inês Santos - 20231630  
+- Mariana Calais-Pedro - 20231641  
 
-**Project Domain:** Lifestyle  
+**Project Domain:** Food & Meal Planning
 
----
+</div><br>
 
-## Part 1: Project Overview
+<div style="border:2px solid #acc95b; padding: 15px; border-radius: 10px; background-color:#f9f9f9">
 
-### What problem are you solving?
-SmartBites addresses the everyday challenge of managing groceries, reducing food waste, and maintaining a nutritious diet—especially for individuals with busy schedules. It helps users make the most of their available ingredients, plan meals efficiently, and meet dietary goals while minimizing time and effort.
+<font color='#acc95b' size=5>**TABLE OF CONTENTS**</font> <a id='toc'></a>
 
-### Who will use your application?
-The app is designed for students and busy adults who want to eat healthily, manage their groceries effectively, reduce food waste, and streamline meal planning without spending excessive time.
+- [PART 1: PROJECT OVERVIEW](#part-1-project-overview)
+- [PART 2: SYSTEM ARCHITECTURE](#part-2-system-architecture)
+- [PART 3: DATA FLOW](#part-3-data-flow)
+- [PART 4: DATA SCHEMA](#part-4-data-schema)
+- [PART 5: ARCHITECTURE DECISIONS & TECHNICAL CHOICES](#part-5-architecture-decisions--technical-choices)
+</div>
 
-### What's your core value proposition? (In one sentence)
-SmartBites delivers personalized, AI-powered meal recommendations that optimize nutrition, reduce waste, and simplify grocery management based on what users already have.
+##  <font color="#acc95b" size=5>PART 1: PROJECT OVERVIEW</font>
 
----
+### <font size=3>**THE PROBLEM WE ARE SOLVING**</font>
+University students often face difficulties planning and preparing meals due to busy and unpredictable schedules. This frequently leads to repetitive meals, inefficient use of available ingredients, time-consuming planning, and increased food waste. *SmartBites* aims to simplify meal planning by helping users create practical meal plans and recipes based on the ingredients they already have, their time constraints, and their dietary preferences.
 
-## Part 2: Define Your Layers
+### <font size=3>**TARGET USERS**</font>
+The primary users of *SmartBites* are university students who manage their own meals. These users typically have limited time, variable schedules, and a need for simple, flexible, and affordable meal-planning solutions.
 
-### UI Layer (Streamlit)
+### <font size=3>**CORE VALUE PROPOSITION**</font>
+*SmartBites* transforms meal planning into a fast and stress-free process by providing personalized meal plans and recipe suggestions based on available ingredients, user preferences, and time constraints.
 
-**Framework:** Streamlit  
+## <font color="#acc95b" size=5>PART 2: SYSTEM ARCHITECTURE</font><a class="anchor" id="2"></a>
+
+<p align="left">
+  <img src="../images/System_Architecture.png" alt="System Architecture" width="500"/>
+</p>
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**UI LAYER**</font></span>
+
+**Framework:** *Streamlit*  
 **Purpose:** Provide an intuitive, conversational interface that allows users to upload grocery receipts, manage ingredients, and receive personalized meal suggestions.  
 
-**Pages/Screens:**
-1. **Main Page: Chatbot** – Interact with AI assistant for meal planning and grocery organization.  
-2. **User Profile Page** – Display and edit personal info (name, age, dietary preferences, BMI, allergies).  
-3. **Calendar Page** – Weekly meal plan with clickable recipe entries.  
-4. **Shopping List Page** – Dynamic shopping list based on planned meals.  
-5. **Ingredients Page** – Manage and visualize ingredient database.  
-6. **Recipes Page** – Browse suggested or saved recipes.  
-7. **Login/Sign Up Pages** – Authenticate users via local credentials.  
 
-**User Inputs:**
+| Page / Screen                    | Purpose                                                                 |
+|----------------------------------|-------------------------------------------------------------------------|
+| Login / Signup Page              | Authenticate users and collect basic profile and dietary information.   |
+| Chatbot Page | Interact with the AI assistant. |
+| Receipt Analyzer Page  | Upload grocery receipts for automatic pantry updates. |
+| Meal Planner Page                | Display weekly meal plans in a calendar view and allow inspection of planned recipes. |
+| Pantry Page | Show pantry items with quantities.  |
+| Shopping List Page | Show and manage the shopping list.         |
+| Profile Page                     | View and edit user profile and dietary preferences.                     |
+
+**User Inputs**
 - File uploads (images or PDFs of receipts)  
-- Text input (chat, search)  
-- Dropdowns (dietary options, cuisine types)  
-- Sliders/numeric inputs (household size)  
-- Checkboxes and toggles (preferences/allergies)
+- Text input (chatbot interaction, meal planning requests, pantry updates)  
+- Dropdowns (dietary options, cuisine types)
+- Checkboxes and toggles (shopping list)
 
-**Display Outputs:**
-- Extracted structured data (from receipt parsing)  
-- Chatbot messages and recommendations  
-- Charts/visualizations for nutrition and inventory  
-- Tables (recipes, shopping lists)  
-- Metrics (calorie intake, weekly goals)
+**Display Outputs**
+- Extracted structured data (pantry items, receipts)
+- Chat conversations
+- Tables (pantry, meal plans)
+- Recipe details and cooking instructions
 
----
 
-### Service Layer (Business Logic)
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**SERVICE LAYER**</font></span>
 
-**Framework:** Python (FastAPI or internal Python modules called by Streamlit)
+**Implementation:** Python  
+**Frameworks:** Internal Python modules invoked by *Streamlit*
 
-The Service Layer is implemented as a single, consolidated service: AIService.
-This design decision was made deliberately to centralize all AI orchestration, reasoning, and tool coordination in one place, avoiding duplicated logic and scattered AI calls across the application.
+The Service Layer represents the core business logic of *SmartBites*. It is implemented as a
+single consolidated service, ***AIService***, which centralizes all AI orchestration, reasoning,
+and workflow coordination.
 
-AIService acts as the only Service Layer component, functioning as the orchestration hub between:
+This architectural decision was made deliberately to avoid duplicated logic, fragmented AI
+calls, and inconsistent prompt handling across the application. By concentrating all AI-driven
+behaviour in one service, the system ensures predictable outputs, easier debugging, and simpler
+maintenance.
 
-- Streamlit UI
-- Google Gemini API
-- Authentication context
+*AIService* functions as the orchestration hub between:
+
+- *Streamlit* UI layer
+- Google *Gemini* API
+- Authentication context (user-scoped execution)
 - Deterministic Tools Layer
+- Persistence layer (*Supabase*, via tools)
 
-**Platform:** Google Gemini API
+**The Service Layer does not directly implement persistence logic. Instead, it invokes
+deterministic tools that encapsulate database access and domain-specific operations.**
 
-#### Responsabilities
-- Extract structured data from grocery receipts, including item name, quantity, price, supermarket, and date
-- Handle multi-turn chatbot conversations for meal planning and grocery organization
-- Categorize foods by cuisine, dietary group, or food type
-- Generate text content for recipes, cooking instructions, and feedback messages
-- Manage all interactions with the Google Gemini API
-- Create and maintain authenticated, multi-turn chat sessions
-- Apply global system instructions consistently across all AI calls
-- Translate natural language user intent into deterministic tool invocations
-- Coordinate receipt extraction, meal planning, cooking assistance, and shopping list logic
-- Ensure all AI actions are scoped to the authenticated user
-- Centralize observability and tracing of AI operations using Langfuse
+#### <font size=3>**AI PLATFORM**</font>
 
-**Multi-turn conversations:**  
-☑ Yes — for meal planning, dietary guidance, and grocery organization  
+**LLM Provider:** Google *Gemini* (*Gemini* 2.5 Flash)
 
-**RAG/Vector Search:**  
-Potential future enhancement — e.g., semantic search across recipe databases.  
+*Gemini* is used exclusively for reasoning, natural language understanding, and content generation.
+All side effects (database reads/writes) are executed through explicit tool calls, ensuring that
+the backend remains deterministic and auditable.
 
----
+#### <font size=3>**RESPONSABILITIES**</font>
 
-### Tools Layer (Function Calling)
+The Service Layer (*AIService*) is responsible for:
+
+- Managing all interactions with the Google *Gemini* API
+- Creating and maintaining authenticated, multi-turn chat sessions
+- Applying global system instructions consistently across all AI calls
+- Handling multi-turn conversational flows for:
+  - Meal planning
+  - Grocery and pantry management
+  - Cooking assistance
+- Translating natural language user intent into deterministic tool invocations
+- Coordinating workflows such as:
+  - Receipt parsing and pantry updates
+  - Meal plan generation and approval
+  - Recipe storage and retrieval
+  - Shopping list synchronization
+- Extracting structured data from grocery receipts (item name, quantity, price, store, date)
+- Generating AI-driven content, including:
+  - Recipes
+  - Step-by-step cooking instructions
+  - Feedback and clarification messages
+- Ensuring all AI actions are scoped to the authenticated user context
+- Centralizing observability, tracing, and debugging of AI operations via *Langfuse*
+
+#### <font size=3>**CONVERSATIONAL MANAGEMENT**</font>
+
+**Multi-turn conversations:** Yes  
+
+*AIService* maintains conversational state for meal planning, dietary guidance, and grocery
+organization while keeping the backend stateless. Context is reconstructed per request using
+authenticated user data retrieved through tools.
+
+#### <font size=3>**DESIGN RATIONALE**</font>
+
+- Centralized AI orchestration prevents inconsistent reasoning and duplicated prompt logic
+- Clear separation between reasoning (*AIService*) and side effects (Tools Layer)
+- Deterministic tools ensure reproducibility and safe database operations
+- Single service simplifies observability, debugging, and future scaling
+- Architecture remains compatible with future extraction into a standalone API service
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**TOOLS LAYER**</font></span>
 
 | **Tool** | **Purpose** |
 |-----------|--------------|
 | **User Checker** | Retrieves profile/dietary data for AI use | 
-| **Pantry Checker** | Returns pantry items in consisten, human-readable formatting |
+| **Pantry Checker** | Returns pantry items in consistent, human-readable formatting |
 | **Pantry Writer** | Insert pantry entries (from receipts or user input) and removes consumed items |
 | **Recipe Checker** | Fetches recently cooked recipes to reduce repetition |
 | **Recipe Writer** | Writes/updates/deletes recipes with user approval |
 | **Shopping List Writer** | Writes missing ingredients and reconciles receipt updates |
-| **Search** | Enable Gemini to search for external recipes and retrieve structured web content |
 | **Cooking Assistant** | Provide structured cooking guidance without databse mutation |
+| **Seasonal Finder** | Identifies the current season to fit recipe suggestions |
+
+## <font color="#acc95b" size=5>PART 3: DATA FLOW</font>
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**AUTHENTICATION**</font></span>
+
+**Trigger**: New user signup or existing user login
+
+- **SignUp**: UI collects email & password $\rightarrow$ validates input $\rightarrow$ stores credentials securely in Supabase auth table $\rightarrow$ creates user profile in database.
+- **Login**: UI collects credentials $\rightarrow$ verifies against database $\rightarrow$ grants access to AI Chatbot page upon success.
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**RECEIPT PROCESSING**</font></span>
+
+**Trigger**: User uploads a receipt image
+
+- UI sends receipt to Service Layer $\rightarrow$ validated $\rightarrow$ passed to *Gemini* for text extraction $\rightarrow$ structured items are normalized $\rightarrow$ inserted into pantry table.
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**PANTRY, MEAL PLAN & SHOPPING MANAGEMENT**</font></span>
+
+**Trigger**: User actions like generating meal plans, adding/consuming ingredients, or updating shopping lists
+
+- **Meal Plan**: *Gemini* queries pantry, preferences, and recent recipes $\rightarrow$ generates proposed plan $\rightarrow$ highlights missing items $\rightarrow$ UI presents suggestions $\rightarrow$ approved plan stored; missing items added to shopping list.
+
+- **Pantry Updates**: *Gemini* updates pantry levels based on user input or consumption $\rightarrow$ suggests replacements if ingredients run low.
+
+- **Shopping List**: Items added/removed manually or automatically $\rightarrow$ stored in database $\rightarrow$ reconciled with future receipts.
 
 
----
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**COOKING HELPER**</font></span>
 
-## Part 3: Data Flow
+**Trigger**: User asks a cooking or technique question
 
-**Example User Scenario:**
-User uploads a grocery receipt and requests a weekly meal plan.
+*Gemini* provides step-by-step guidance via UI; no database changes.
 
-```
-1. User uploads receipt and interacts with chatbot
-↓
-2. Streamlit (UI) sends file to Grocery Parsing Service
-↓
-3. Grocery Parsing Service:
-   a. Extracts items/quantities using OCR + Gemini
-   b. Updates ingredient database
-   c. Triggers meal planning service
-↓
-4. Meal Planning Service requests AI suggestions
-   Input: available ingredients + user preferences
-   Output: structured weekly plan
-↓
-5. Tools Layer:
-   a. Nutritional Analyzer calculates nutrition
-   b. Calendar Sync Tool schedules meals
-↓
-6. Streamlit displays:
-   - Weekly meal plan
-   - Shopping list
-   - Nutrition dashboard
-↓
-7. User can edit, confirm, or regenerate plan
-```
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**FETCHING USER DATA**</font></span>
 
----
+**Trigger**: User requests pantry contents or meal plan
 
-## Part 4: Data Schema
+*Gemini* retrieves requested data via Tools Layer $\rightarrow$ presents in clear, human-readable format $\rightarrow$ database remains unchanged.
 
-### Structured Data Extracted
+## <font color="#acc95b" size=5>PART 4: DATA SCHEMA</font>
 
-**Domain Schema:**
+<font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**STRUCTURED DATA EXTRACTED**</font></span>
+
 ```json
 {
-  "user_profile": {
-    "name": "string",
+
+  "user": {
+    "full_name": "string",
     "birth_date": "date",
     "gender": "string",
-    "nationality": "string",
-    "household_size": "integer",
-    "dietary_preferences": ["string"],
-    "allergies": ["string"],
-    "bmi": "float"
+    "household_number": "integer",
+    "restrictions": ["string"], 
+    "diet_type": ["string"],
+    "cuisine_type": ["string"]
   },
-  "ingredient": {
-    "name": "string",
+
+  "pantry_items": {
+    "ingredient_name": "string",
     "quantity": "float",
-    "unit": "string",
-    "expiration_date": "date"
+    "store_name": "string",
+    "purchase_date": "date"
   },
-  "recipe": {
-    "title": "string",
-    "ingredients": ["ingredient"],
+
+  "recipes": {
+    "recipe_date": "date",
+    "recipe_name": "string",
+    "ingredients": ["string"],
     "instructions": "string",
-    "nutrition": {
-      "calories": "float",
-      "protein": "float",
-      "carbs": "float",
-      "fat": "float"
-    },
-    "image_url": "string"
+    "meal_type": "string", 
+    "meal_date": "date", 
+    "link": "string" 
   },
+
   "shopping_list": {
-    "items": [
-      { "name": "string", "quantity": "float", "unit": "string" }
-    ]
+    "ingredient_name": "string", 
+    "quantity": "float"
   }
+
 }
 ```
 
-**Required fields:**
-- User name  
-- Ingredient name + quantity  
-- Recipe title + ingredients  
-
-**Optional fields:**
-- Nutrition breakdown  
-- Recipe image  
-- Expiration dates  
-
----
-
-## Part 5: Component-Level Documentation
-
-| **Component** | **Technology** | **Purpose** | **Interfaces With** |
-|----------------|----------------|--------------|----------------------|
-| `app.py` | Streamlit | Main entry point; controls UI routing and session state | Services + Gemini |
-| `receipt_parser.py` | Python, Gemini | Extracts structured data from uploaded receipts | OCR engine, database |
-| `meal_planner.py` | Python | Generates weekly plan | AI Layer, Nutritional Analyzer |
-| `database.py` | SQLite or Firebase | Stores user profiles, ingredients, recipes | All services |
-| `tools.py` | Python | Defines callable functions (BMI, nutrition, calendar) | Streamlit + AI |
-| `config.yaml` | YAML | Holds API keys and model settings | AI and Tool Layers |
-
----
-
-## Part 6: Architecture Decisions & Technical Choices
+## <font color="#acc95b" size=5>PART 5: ARCHITECTURE DECISIONS & TECNICAL CHOICES</font>
 
 | **Decision** | **Rationale** |
 |---------------|---------------|
 | **Streamlit for UI** | Rapid prototyping and interactive AI integration |
 | **Python (modular structure)** | Familiar language for team; strong ecosystem |
-| **Gemini API** | Native multimodal capabilities for text + image (receipt parsing) |
-| **Local Database (SQLite)** | Simple to implement and sufficient for prototype stage |
-| **Function Calling for Tools** | Enables modular AI-tool interaction (BMI, nutrition, calendar) |
+| ***Gemini* API** | Native multimodal capabilities for text + image (receipt parsing) |
+| **Database (*Supabase*)** | Simple to implement and sufficient for prototype stage |
+| **Function Calling for Tools** | Enables modular AI-tool interaction |
 | **Streamlit Cloud Deployment** | Free hosting, easy sharing, integrated secrets management |
-| **Langfuse Integration (future)** | Adds tracing and performance monitoring for LLM calls |
-
----
-
-## Part 7: Setup & Deployment Instructions
-
-*00_environment_setup.ipynb*
-
-### **1. Environment Setup**
-```bash
-# Clone repository
-git clone https://github.com/<team-repo>/smartbites.git
-cd smartbites
-
-# Create environment
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### **2. Environment Variables**
-Create a `.env` file:
-```
-GEMINI_API_KEY=your_api_key_here
-STREAMLIT_API_KEY=your_key_if_needed
-```
-
-### **3. Run Locally**
-```bash
-streamlit run app.py
-```
-
-### **4. Deployment**
-1. Push to GitHub.  
-2. Log in to [Streamlit Cloud](https://share.streamlit.io/).  
-3. Deploy repository → set environment variables.  
-4. Share the public app link with testers.  
-
----
-
-## Part 8: Team Roles
-
-- **Beatriz Marques** → AI operations and chatbot integration  
-- **Constança Pereira da Silva** → UI design and Streamlit pages  
-- **Maria Inês Santos** → Backend services and database management  
-- **Mariana Calais-Pedro** → Data extraction, receipt parsing, calendar sync  
-
----
-
-## Part 9: Next Steps
-
-**This Week:**  
-- Set up project structure  
-- Implement grocery parsing prototype  
-- Test Gemini function calling  
-
-**Next 2 Weeks:**  
-- Develop Streamlit UI  
-- Integrate services with AI layer  
-- Add Langfuse tracing  
-
-**Final Weeks:**  
-- Refine user experience  
-- Conduct end-to-end testing  
-- Deploy final version on Streamlit Cloud  
-- Prepare and rehearse final presentation  
+| **Langfuse Integration** | Adds tracing and performance monitoring for LLM calls |

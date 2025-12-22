@@ -1,211 +1,199 @@
-# 🍽️ SmartBites — AI-Powered Meal Planner & Nutrition Assistant
+# <font color="#acc95b" size=6>***SmartBites***</font>
 
-SmartBites is a **personalized meal planning** web application powered by AI-driven reasoning, secure user authentication, and cloud-based data persistence.
-It helps users plan meals, explore nutrition insights, and generate AI-assisted recommendations — all within an interactive **Streamlit** interface powered by the **Google Gemini API**.
+***When motivation is low but hunger is high.***
 
----
+<div style="border:2px solid #acc95b; padding: 15px; border-radius: 10px; background-color: #eef5dbff">
 
-## 🎯 Project Objective
+**Team Name:** *SmartBites*
 
-This Capstone project aims to integrate **AI-driven meal planning** with **nutritional guidance** to deliver:
+**Project Name:** *SmartBites*
 
-* **Conversational AI Web App**: Streamlit-based chatbot using the Gemini API for nutrition Q&A and custom recommendations.
-* **Smart Meal Planner**: AI-generated meal suggestions adapted to user preferences and dietary needs.
-* **Secure User Data Management**: Authentication and per-user data persistence using Supabase.
-* **Interactive Experience**: Interactive web interface for meal planning, cooking assistance, and grocery management.
+**Team Members:**  
+- Beatriz Marques - 20231605  
+- Constança Pereira da Silva - 20231720 
+- Maria Inês Santos - 20231630  
+- Mariana Calais-Pedro - 20231641  
 
----
+**Project Domain:** Food & Meal Planning
 
-## 👥 Team
+</div><br>
 
-* **Beatriz Marques** – 20231605
-* **Constança Pereira da Silva** – 20231720
-* **Maria Inês Santos** – 20231630
-* **Mariana Calais-Pedro** – 20231641
+<div style="border:2px solid #acc95b; padding: 15px; border-radius: 10px; background-color:#f9f9f9">
 
----
+<font color='#acc95b' size=5>**TABLE OF CONTENTS**</font> <a id='toc'></a>
 
-## 📊 Methodology
+- [OVERVIEW](#overview)
+- [PROJECT'S ARCHITECTURE](#projects-architecture)
+- [INSTALLATION & SETUP](#installation--setup)
+- [DEPLOYMENT](#deployment)
+- [PROJECT'S STRUCTURE](#projects-structure)
+- [TEAM MEMBERS & ROLES](#team-members--roles)
 
-### Capstone Development Timeline
+</div>
 
-Following the **NOVA IMS Capstone structure**, SmartBites was developed in three phases:
+## <font color="#acc95b" size=5>OVERVIEW</font>
 
-1. **📝 Week 3 – Initial Proposal**
+*SmartBites* is a **personalized meal planning web application** designed to help university students manage meals despite busy and unpredictable schedules. Many students face repetitive meals, inefficient ingredient usage, and food waste due to limited time and lack of planning. *SmartBites* solves this by providing **practical, AI-driven meal plans and recipe suggestions** based on available ingredients, dietary preferences, and available cooking time.
 
-   * Defined the project concept: AI-based meal planner & nutrition assistant
-   * Formed the team and distributed roles
-   * Drafted contribution plan and project scope
+Key features include:
 
-2. **🧩 Week 12 – Technical Blueprint**
+* **AI-Powered Meal Planning**: Generates weekly meal suggestions adapted to user preferences, pantry contents, and time constraints.  
+* **Conversational Assistant**: Streamlit-based chatbot using the **Google *Gemini* API** to suggest recipes and assist with meal planning interactively.  
+* **Smart Pantry & Shopping Management**: Tracks ingredients, updates pantry items from receipts, and manages shopping lists to minimize waste.  
+* **Secure User Data Handling**: Authentication and per-user data persistence through ***Supabase***, keeping meal plans, pantry items, and shopping lists safe.  
+* **Interactive & Intuitive Experience**: Easy-to-use interface for planning meals, cooking assistance, and grocery management.
 
-   * Detailed architecture and module responsibilities
-   * Integrated Gemini API with tool-based reasoning and controlled web search
-   * Designed the Streamlit app structure and function-calling tools
+By combining **AI-driven reasoning** and a **friendly interactive interface**, *SmartBites* makes meal planning **fast, flexible, and stress-free** for students who want to cook efficiently and avoid food waste.
 
-3. **🚀 Final Delivery**
 
-   * Fully deployed SmartBites application on Streamlit Cloud
-   * Accompanied by final presentation and technical report
+##  <font color="#acc95b" size=5>PROJECT'S ARCHITECTURE</font>
 
----
+This section presents the **design of our system architecture** along with the main technology choices. It highlights the layer structure, key components, and design decisions that support the application’s functionality and scalability.  
 
-## 🧠 Technologies Used
+| **Category**       | **Technologies** |
+|-------------------|----------------------------|
+| **Backend**        | Python and Google *Gemini* API |
+| **Frontend**       | *Streamlit* |
+| **Database**       | *Supabase* |
+| **Observability**  | *Langfuse* |
+| **Deployment**  | *Streamlit Cloud Community* |
 
-| Category                      | Tools & Frameworks              |
-| ----------------------------- | ------------------------------- |
-| **Frontend & Deployment**     | Streamlit, Streamlit Cloud      |
-| **AI Integration**            | Google Gemini API               |
-| **Data and Authentication**   | Supabase                        |
-| **Programming Language**      | Python                          |
-| **Collaboration**             | Git, GitHub                     |
-| **Environment Management**    | `venv`, `requirements.txt`      |
+[$\rightarrow$ View Full Architecture Details](docs\ARCHITECTURE.md)
 
----
+##  <font color="#acc95b" size=5>INSTALLATION & SETUP</font>
 
-## 📁 Repository Structure
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**PREREQUISITES**</font></span>
+
+- Python 3.13.5
+- API keys for *AIService*
+
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**INSTALATION STEPS**</font></span>
+
+#### <font size=3>**ENVIRONMENT SETUP**</font>
+
+```bash
+# Clone repository
+git clone https://github.com/beatrizmarques2005/ai-app-team-SmartBites.git
+cd ai-app-team-smartbites
+
+# Create and activate environment
+python -m venv .venv
+source .venv/bin/activate             # Mac
+.venv\Scripts\activate on Windows     # Windows/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+#### <font size=3>**ENVIRONMENT VARIABLES**</font>
+Create a `.env` file (just like the *.env.example* file):
+
+```bash
+# Google AI Configuration
+GOOGLE_API_KEY="XXXXXXXXXXXXXXXXXX"
+MODEL=gemini-2.5-flash-lite
+
+# Langfuse Configuration (optional but recommended)
+LANGFUSE_SECRET_KEY = "XXXXXXXXXXXXXXXXXX"
+LANGFUSE_PUBLIC_KEY = "XXXXXXXXXXXXXXXXXX"
+LANGFUSE_HOST = "https://cloud.langfuse.com"
+
+# Application Settings
+DEBUG=False
+LOG_LEVEL=INFO
+TEMPERATURE=0.7
+MAX_OUTPUT_TOKENS=2048
+
+# SUPABASE Configuration
+SUPABASE_URL="https://your-supabase-url.supabase.co"
+SUPABASE_KEY="your-supabase-key"
+```
+
+### <font size=3>**RUN LOCALLY**</font>
+```bash
+streamlit run streamlit\App.py
+```
+
+## <font color="#acc95b" size=5>DEPLOYMENT</font>
+**Live Application:** [Deployed Link](XXXXX)
+ 
+**Deployment Platform:** *Streamlit Cloud Community*
+
+##  <font color="#acc95b" size=5>PROJECT'S STRUCTURE</font>
 
 ```tree
-├── data/
-│   └── sample_documents/
-├── images/
-│   └── smartbites_preview.png
-├── notebooks/
-│   ├── model_prototyping.ipynb
-│   └── data_processing.ipynb
+├── data/                           # Sample documents and input files for testing.  
+│   └── sample_documents/                       
+|
+├── docs/                           # Project documentation, architecture, and guidelines.  
+│   ├── ARCHITECTURE.md
+│   ├── SmartBites_TechnicalReport.pdf
+│   ├── Project_Guidelines.pdf
+│   └── Technical_Report_Guidelines.pdf
+|
+├── images/                         # Logo and diagrams.
+│   ├── SmartBites_Logo.png
+│   └── System_Architecture.png
+|
 ├── src/
-│   ├── services/
-│   │   └── ai_service.py
-│   ├── tools/
-│   │   ├── user_checker.py
+│   ├── db/                         # Database client and connection utilities.
+│   │   └── client.py
+│   ├── services/                   # Core service layer including AI orchestration.
+│   |   ├── __init__.py
+│   |   ├── ai_service.py
+│   │   └── system_instruction.txt
+│   ├── tools/                      # Deterministic utility functions.
+│   │   ├── cooking_assistant.py
 │   │   ├── pantry_checker.py
 │   │   ├── pantry_writer.py
 │   │   ├── recipe_checker.py
 │   │   ├── recipe_writer.py
+│   │   ├── seasonal_finder.py
 │   │   ├── shopping_writer.py
-│   │   ├── search.py
-│   │   └── cooking_assistant.py
-│   ├── utils/
-│   │   ├── config.py
+│   │   ├── user_checker.py
+│   │   └── user_writer.py
+│   ├── utils/                      # Helper modules for meal plan workflows, pending plans, and tracing/debugging.
+│   │   ├── meal_plan_flow.py
+│   │   ├── pending_meal_plan.py
 │   │   └── tracing.py
-│   └── ai_client.py
-├── report/
-│   └── final_report.pdf
-├── streamlit_app.py
-├── requirements.txt
-└── README.md
+│   ├── workflows/                  # Workflow scripts, including receipt parsing.  
+│   │   └── receipt_parser.py
+│   └── authentication.py           # Handles user authentication logic.
+|
+├── streamlit/
+│   ├── auth_/                      # Login and signup Streamlit pages.  
+│   │   ├── login.py
+│   │   └── signup.py
+│   ├── pages_/                     # Streamlit app pages.
+│   │   ├── about_us.py
+│   │   ├── chat.py
+│   │   ├── pantry.py
+│   │   ├── planner.py
+│   │   ├── profile.py
+│   │   ├── receipts.py
+│   │   └── shopping_list.py
+│   └── App.py                      # Main Streamlit application entry point.  
+|
+├── .env.example                    # Example environment variables file.  
+├── .gitignore                      # Git ignore rules.  
+├── README.md                       # Project overview and instructions.
+└── requirements.txt                # Python dependencies.
 ```
 
----
+## <font color="#acc95b" size=5>TEAM MEMBERS & ROLES</font>
 
-## ⚙️ How to Run *SmartBites*
+**Beatriz Marques** $\rightarrow$ *AI & Systems Architecture*
 
-### 1️⃣ Create and Activate the Virtual Environment
+Leads the overall technical direction of the project and designs the system architecture. Responsible for AI-related components, including prompt design, conversational workflows, OCR-based receipt parsing, and implementation of the Service Layer that connects the UI, tools, and persistence layers.
 
-**Windows**
+**Constança Pereira da Silva** $\rightarrow$ *UI & Streamlit Development*
 
-```bash
-python -m venv project-env
-smartbites-env\Scripts\activate
-```
+Responsible for all user-facing components of the application. Designs and implements the Streamlit interface, ensuring intuitive user interaction, accessibility, and seamless integration with backend services.
 
-**macOS / Linux**
+**Maria Inês Santos** $\rightarrow$ *Tools & Utility Logic*
 
-```bash
-python3 -m venv project-env
-source project-env/bin/activate
-```
+Develops and maintains deterministic tools and utility modules that support core application functionality. Ensures correct integration between tools, AI outputs, and service logic.
 
-### 2️⃣ Install Dependencies
+**Mariana Calais-Pedro** $\rightarrow$ *Database & Persistence*
 
-```bash
-pip install -r requirements.txt
-```
-
-### 3️⃣ Run the App
-
-```bash
-streamlit run streamlit_app.py
-```
-
-SmartBites will start in your browser at [http://localhost:8501](http://localhost:8501).
-
----
-
-## 💡 Development Tips
-
-* To stop the app: **Ctrl + C** in the terminal
-* To check your Streamlit version:
-
-  ```bash
-  streamlit --version
-  ```
-* Update dependencies when new modules are added:
-
-  ```bash
-  pip freeze > requirements.txt
-  ```
-
----
-
-## 🤪 Git Workflow Guide
-
-Ensure smooth collaboration across the team with these steps:
-
-### 🔍 1. Check your branch
-
-```bash
-git branch
-```
-
-If needed, switch to your branch:
-
-```bash
-git checkout your-branch-name
-```
-
-### 🔄 2. Sync with the shared branch
-
-```bash
-git pull origin shared-branch-name
-```
-
-### 💾 3. Save and push your work
-
-```bash
-git add .
-git commit -m "Add: meal planner UI"
-git push origin your-branch-name
-```
-
-### 🔁 4. Merge your changes
-
-```bash
-git checkout shared-branch-name
-git pull origin shared-branch-name
-git merge your-branch-name
-git push origin shared-branch-name
-```
-
----
-
-## 🚀 Deployment Notes
-
-SmartBites is deployed on **Streamlit Cloud**.
-
-* ✅ Ensure correct environment setup via `requirements.txt`
-* ✅ Document all environment variables in `.env.example`
-* ✅ Test RAG-based search and API integrations before deployment
-* ✅ Use Streamlit access controls for visibility and version management
-
-Deployment URL: *to be added upon final publication.*
-
----
-
-## 📚 References
-
-* [Google Gemini API Documentation](https://ai.google.dev/)
-* [Streamlit Documentation](https://docs.streamlit.io/)
-* [ChromaDB](https://docs.trychroma.com/)
-* [LangChain Docs](https://python.langchain.com/)
-* [Gemini Cookbook](https://github.com/google-gemini/cookbook)
+Designs and manages the data model and persistence layer. Implements database schemas and CRUD operations, ensuring data integrity and reliable storage across the application.
