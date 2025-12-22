@@ -11,6 +11,16 @@ import sys
 from pathlib import Path
 
 
+from src.authentication import AuthService
+
+if "auth" not in st.session_state:
+    st.session_state.auth = None
+
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 

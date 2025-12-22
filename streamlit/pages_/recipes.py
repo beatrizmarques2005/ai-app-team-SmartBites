@@ -51,7 +51,10 @@ def recipes_page():
             # )
             # st.image(recipe['image_url'], use_column_width=True)
             # st.divider()
-            click_recipe = st.button(f"**{recipe['recipe_name']}**")
+            click_recipe = st.button(
+                f"**{recipe['recipe_name']}**",
+                key=f"recipe-btn-{recipe['id']}"
+)
             if click_recipe:
                 st.session_state.selected_recipe = recipe
 

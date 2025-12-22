@@ -18,6 +18,7 @@ def signup_page():
         'full_name': '',
         'birth_date': date(2000, 1, 1),
         'gender': '',
+        'nationality': '',
         'household_number': '',
         'restrictions': [],
         'diet_type': [],
@@ -79,6 +80,7 @@ def signup_page():
             st.session_state.birth_date = st.date_input("Birth date", value= datetime.date(2000, 1, 1),  min_value=datetime.date(1920, 1, 1), max_value=datetime.date.today() )
             st.session_state.gender = st.selectbox("Gender", options = ["Prefer not to say", "Female", "Male", "Other"], index = 0)
             st.session_state.household_number = st.number_input("Number of people in household", min_value=1, value=1)
+            st.session_state.nationality = st.text_input("Nationality / Geographic area", placeholder="e.g. Portuguese, European, Latin American")
             next_clicked = st.form_submit_button("Next")
 
             if next_clicked:
@@ -108,6 +110,7 @@ def signup_page():
                 user_data['birth_date'] = st.session_state.birth_date.isoformat()
                 user_data['gender'] = st.session_state.gender
                 user_data['household_number'] = st.session_state.household_number
+                user_data['nationality'] = st.session_state.nationality
                 user_data['diet_type'] = st.session_state.dietary
                 user_data['restrictions'] = st.session_state.restrictions
                 user_data['cuisine_type'] = st.session_state.cuisines
@@ -141,3 +144,10 @@ def signup_page():
                 st.session_state.signup_step = 0
                 st.session_state.signup_data = {}
                 st.rerun()
+
+
+    st.markdown("---")
+
+    if st.button("Already have an account? Log in"):
+        st.session_state["show_signup"] = False
+        st.rerun()

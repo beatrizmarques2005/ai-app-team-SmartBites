@@ -2,6 +2,8 @@ import streamlit as st
 from pathlib import Path
 import sys
 
+#from streamlit.auth_.signup import signup_page
+
 # Ensure project root is on sys.path so `src` imports work when Streamlit
 # runs files from the `streamlit_mariana` package directory.
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,7 +54,8 @@ def login_page():
             except Exception:
                 st.error("❌ Invalid email or password")
 
-    st.markdown('Don\'t have an account?')
-    if st.button('Sign Up', type = 'tertiary'):
-        st.session_state['show_signup'] = True
+    st.markdown("---")
+
+    if st.button("Don't have an account? Sign up"):
+        st.session_state["show_signup"] = True
         st.rerun()
