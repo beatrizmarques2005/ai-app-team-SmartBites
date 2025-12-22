@@ -1,29 +1,58 @@
+"""
+Profile page for the SmartBites Streamlit app.
+
+Purpose:
+- Display and edit user profile information (name, birth date, gender, household, dietary preferences).
+- Persist profile changes to the Supabase `users` table via `UserWriter`.
+
+UI Flow:
+- Configures the page (title, icon, wide layout, collapsed sidebar).
+- Auth gate: requires `user_id` and `auth` in session; otherwise shows error and stops.
+- Queries the `users` table to load current profile data.
+- Displays profile info (full name, birth date, gender, household, restrictions, diet type, cuisines).
+- "Edit Profile" button toggles edit mode, showing a form with prefilled values, where user can modify their information and updates the database.
+
+Session State Keys:
+- `user_id`: authenticated user identifier required for data scoping.
+- `auth`: `AuthService` instance required for `UserWriter`.
+- `edit_mode`: bool toggling between view and edit modes.
+
+Database Schema:
+- Reads and writes to `users` table with fields: `user_id`, `full_name`, `birth_date`, `gender`, `household_number`, `restrictions`, `diet_type`, `cuisine_type`.
+
+Entry Point:
+- `profile_page()`: renders profile UI and handles form submission via `UserWriter`.
+"""
 import streamlit as st
+from langfuse import observe
 import sys
 from pathlib import Path
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
 from src.db.client import supabase
 from src.authentication import AuthService
 from src.tools.user_writer import UserWriter
 
+if "auth" not in st.session_state:
+    st.session_state.auth = AuthService()
+
+@observe
 def profile_page():
-    st.set_page_config(page_title='User Profile', page_icon='👤', initial_sidebar_state = 'collapsed', layout = 'wide')
+    st.set_page_config(
+        page_title='User Profile',
+        page_icon='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg',
+        initial_sidebar_state='collapsed',
+        layout='wide'
+    )
     
     st.title('User Profile')
 
-    user_id = st.session_state.get('user_id', None)
+    auth = st.session_state.auth
+    user_id = st.session_state.get('user_id', None) or auth.get_user_id()
+    
     if user_id is None:
         st.error("User not logged in.")
-        return 
-    
-    auth = st.session_state.get('auth', None)
-    if auth is None:
-        st.error("Authentication service not available.")
         return
-
 
     user_writer = UserWriter(auth)
     
@@ -40,11 +69,9 @@ def profile_page():
         st.write(str(e))
         return 
 
-
-    # Extract first name from full name
+    # Display user information
     full_name = user.get('full_name', 'User')
     first_name = full_name.split()[0] if full_name and full_name.strip() else 'User'
-    
     st.subheader(f"Hello, {first_name}!")
 
     st.markdown(f"**Full Name:** {user.get('full_name', '')}")
@@ -56,7 +83,7 @@ def profile_page():
     st.markdown(f"**Cuisine Type Preferences:** {', '.join(user.get('cuisine_type', [])) if user.get('cuisine_type') else ''}")
 
     
-    # EDIT PROFILE SECTION
+    # Edit profile section
     if 'edit_mode' not in st.session_state:
         st.session_state.edit_mode = False
 
@@ -77,18 +104,15 @@ def profile_page():
             
             household_number = st.number_input("Default Household Number", value=int(user.get('household_number', 1)) if user.get('household_number') else 1, min_value=1)
             
-            # Base options
             diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
             cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean",
                         "American", "Portuguese"]
             restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
-            # Merge user's saved values with predefined options
             user_restrictions = user.get('restrictions') or []
             user_diet_type = user.get('diet_type') or []
             user_cuisine_type = user.get('cuisine_type') or []
             
-            # Add user's custom values to options if not already present
             all_restrictions = restrictions_options + [r for r in user_restrictions if r not in restrictions_options]
             all_diet_options = diet_options + [d for d in user_diet_type if d not in diet_options]
             all_cuisine_options = cuisine_options + [c for c in user_cuisine_type if c not in cuisine_options]

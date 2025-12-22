@@ -1,21 +1,61 @@
+"""
+Planner page for the SmartBites Streamlit app.
+
+Purpose:
+- Visualize a user's meal plan in Weekly and Monthly views.
+- Navigate across weeks/months and view recipe details saved in the database.
+
+UI Flow:
+- Configures the page (title, icon, wide layout, collapsed sidebar).
+- Auth gate: requires `user_id` in session; otherwise shows a warning and stops.
+- View selector toggles between Weekly and Monthly modes.
+- Weekly: prev/next week buttons, "This Week", and a date jump; shows 7-day columns with recipe buttons.
+- Monthly: prev/next month buttons and "This Month"; shows a calendar grid with recipe buttons per day.
+- Clicking a recipe opens a dialog with title, meal type, date, ingredients, parsed instructions, and an optional link.
+
+Session State Keys:
+- `user_id`: identifies the authenticated user for data scoping.
+- `planner_view`: current view mode, either "Weekly" or "Monthly".
+- `week_offset`, `month_offset`: integers tracking navigation offsets.
+- `date_search`: selected date for jumping in Weekly view.
+- `selected_recipe`: the recipe dict selected for the details dialog.
+- `dialog_open`: bool to prevent the dialog from re-opening every rerun.
+
+Database Schema:
+- Reads from `recipes` using fields: `user_id`, `meal_date`, `recipe_name`,
+  `ingredients`, `instructions`, `meal_type`, `link`.
+
+Entry Point:
+- `weekly_planner_page()`: renders planner UI and hooks recipe dialogs.
+"""
 import streamlit as st
+from langfuse import observe
 from datetime import datetime, timedelta, date
 from pathlib import Path
 import sys
 import calendar
-
-# Ensure project root is on sys.path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-
 from src.db.client import supabase
+from src.authentication import AuthService
 
+@observe
 def start_of_week(date):
     return date - timedelta(days=date.weekday())
 
-
+@observe
 def fetch_user_recipes(user_id, start_date, end_date):
-    """Fetch recipes from database for a date range."""
+    """Fetch recipes from database for a date range.
+    
+    Args:
+        user_id: The user's unique identifier.
+        start_date: Start of date range (date object).
+        end_date: End of date range (date object).
+    
+    Returns:
+        list: List of recipe dicts with keys: date, title, ingredients, details, meal_type, link.
+              Returns empty list on error or if no recipes found.
+    """
     if not user_id or not supabase:
         return []
     
@@ -47,9 +87,17 @@ def fetch_user_recipes(user_id, start_date, end_date):
         st.error(f"Error fetching recipes: {str(e)}")
         return []
 
-
+@observe
 def shift_month(base_date: date, delta: int) -> date:
-    """Shift a date by delta months, keeping day clamped to month length."""
+    """Shift a date by delta months, keeping day clamped to month length.
+    
+    Args:
+        base_date: The starting date.
+        delta: Number of months to shift (positive for future, negative for past).
+    
+    Returns:
+        date: The shifted date with day clamped to valid range for target month.
+    """
     y, m = base_date.year, base_date.month
     new_m_index = (m - 1) + delta
     new_y = y + new_m_index // 12
@@ -57,36 +105,63 @@ def shift_month(base_date: date, delta: int) -> date:
     last_day = calendar.monthrange(new_y, new_m)[1]
     return date(new_y, new_m, min(base_date.day, last_day))
 
-
+@observe
 def month_bounds(base_date: date, month_offset: int):
-    """Return first and last date of the month after applying offset."""
+    """Return first and last date of the month after applying offset.
+    
+    Args:
+        base_date: The reference date.
+        month_offset: Number of months to offset from base_date.
+    
+    Returns:
+        tuple: (start_date, end_date) representing first and last day of target month.
+    """
     start = shift_month(base_date.replace(day=1), month_offset)
     last_day = calendar.monthrange(start.year, start.month)[1]
     end = date(start.year, start.month, last_day)
     return start, end
 
-
+@observe
 def month_weeks(start: date):
-    """Build calendar weeks for a month starting at the given date."""
+    """Build calendar weeks for a month starting at the given date.
+    
+    Args:
+        start: First day of the month (should be day=1).
+    
+    Returns:
+        list: List of weeks, each week is a list of 7 date objects (Monday-Sunday).
+              Includes dates from adjacent months to complete partial weeks.
+    """
     weeks = []
-    cal = calendar.Calendar(firstweekday=0)  # Monday=0 in datetime, but calendar default is Monday=0? Actually 0=Monday? In calendar, 0=Monday.
+    cal = calendar.Calendar(firstweekday=0)  
     for week in cal.monthdatescalendar(start.year, start.month):
         weeks.append(list(week))
     return weeks
 
-
+@observe
 def weekly_planner_page():
-    st.set_page_config(page_title='SmartBites | Weekly Planner', page_icon='📆', layout = 'wide', initial_sidebar_state='collapsed')
+    """Render the meal planner page.
+    """
+    st.set_page_config(
+        page_title='SmartBites | Meal Planner',
+        page_icon='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/calendar-week.svg',
+        layout='wide',
+        initial_sidebar_state='collapsed'
+    )
     st.title("My Weekly Plan")
 
-    # Check if user is logged in
-    if "user_id" not in st.session_state or not st.session_state.user_id:
-        st.warning("Please log in to view your meal plan.")
-        return
+    auth = st.session_state.auth
+    user_id = st.session_state.get('user_id', None) or auth.get_user_id()
+
+    if "auth" not in st.session_state:
+        st.session_state.auth = AuthService()
+
+    if not user_id:
+        st.warning("User not logged in properly.")
+        st.stop()
     
     user_id = st.session_state.user_id
 
-    # --- Initialize session state ---
     if "week_offset" not in st.session_state:
         st.session_state.week_offset = 0
     if "month_offset" not in st.session_state:
@@ -98,19 +173,10 @@ def weekly_planner_page():
     if "planner_view" not in st.session_state:
         st.session_state.planner_view = "Weekly"
 
-    # cola, colb = st.columns([1, 3])
-    # with cola:
-    #     selected_date = st.date_input("Go to date", value=st.session_state.date_search or datetime.today())
-    #     if st.button("Go"):
-    #         st.session_state.date_search = selected_date
-    #         st.session_state.week_offset = (start_of_week(selected_date) - start_of_week(datetime.today().date())).days // 7
-    #         st.session_state.selected_event = None
-
-
     st.markdown("")
 
     today = datetime.today().date()
-    # Navigation row with view switch in an expander next to the date search slot
+    # Navigation row
     nav_col1, nav_col2, nav_col3, nav_spacer, nav_col4, nav_col5 = st.columns([0.5, 1, 0.5, 3, 2, 1.2])
     current_view = st.session_state.get("planner_view", "Weekly")
     with nav_col5:
@@ -137,18 +203,21 @@ def weekly_planner_page():
                 st.session_state.selected_recipe = None
                 st.session_state.dialog_open = False
                 st.rerun()
+
         with nav_col2:
             if st.button("This Week", use_container_width=True):
                 st.session_state.week_offset = 0
                 st.session_state.selected_recipe = None
                 st.session_state.dialog_open = False
                 st.rerun()
+
         with nav_col3:
             if st.button(":material/arrow_forward:", key="next_week", use_container_width=True):
                 st.session_state.week_offset += 1
                 st.session_state.selected_recipe = None
                 st.session_state.dialog_open = False
                 st.rerun()
+
         with nav_col4:
             selected_date = st.date_input("Jump to date", label_visibility="collapsed", value=(st.session_state.date_search or today))
             if selected_date != st.session_state.date_search:
@@ -162,46 +231,46 @@ def weekly_planner_page():
 
         start_week = start_of_week(today) + timedelta(weeks=st.session_state.week_offset)
         week_days = [start_week + timedelta(days=i) for i in range(7)]
-        events = fetch_user_recipes(user_id, start_week, start_week + timedelta(days=6))
+        recipes = fetch_user_recipes(user_id, start_week, start_week + timedelta(days=6))
 
         st.markdown(f"### Week {start_week.isocalendar()[1]} ")
-        st.divider()
+        st.markdown("")
 
         cols = st.columns(7)
         for i, day in enumerate(week_days):
             is_today = (day == today)
             with cols[i]:
-                header_bg = "#eef8ef" if is_today else "transparent"
-                header_color = "#0f6716" if is_today else "inherit"
+                header_bg = "#a5c4a8ab" if is_today else "transparent"
                 st.markdown(
-                    f"<div style='text-align: center; font-weight: bold; color: {header_color}; background:{header_bg}; border-radius:6px; padding:4px;'>"
+                    f"<div style='text-align: center; font-weight: bold; background:{header_bg}; border-radius:6px; padding:4px;'>"
                     f"{day.strftime('%a %d')}</div>",
                     unsafe_allow_html=True,
                 )
-                st.divider()
-                day_events = [e for e in events if e["date"] == day]
-                if not day_events:
+                st.markdown("")
+                day_recipes = [r for r in recipes if r["date"] == day]
+                if not day_recipes:
                     st.caption("No meals planned")
-                for e in day_events:
-                    if st.button(e["title"], key=f"btn-{day}-{e['title']}", use_container_width=True):
-                        st.session_state.selected_recipe = e
+                for r in day_recipes:
+                    if st.button(r["title"], key=f"btn-{day}-{r['title']}", use_container_width=True):
+                        st.session_state.selected_recipe = r
                         st.session_state.dialog_open = False
                         st.rerun()
 
     else:
-        # Monthly view
         with nav_col1:
             if st.button(":material/arrow_back:", key="prev_month", use_container_width=True):
                 st.session_state.month_offset -= 1
                 st.session_state.selected_recipe = None
                 st.session_state.dialog_open = False
                 st.rerun()
+
         with nav_col2:
             if st.button("This Month", use_container_width=True):
                 st.session_state.month_offset = 0
                 st.session_state.selected_recipe = None
                 st.session_state.dialog_open = False
                 st.rerun()
+
         with nav_col3:
             if st.button(":material/arrow_forward:", key="next_month", use_container_width=True):
                 st.session_state.month_offset += 1
@@ -210,13 +279,8 @@ def weekly_planner_page():
                 st.rerun()
 
         month_start, month_end = month_bounds(today, st.session_state.month_offset)
-        events = fetch_user_recipes(user_id, month_start, month_end)
+        recipes = fetch_user_recipes(user_id, month_start, month_end)
         st.markdown(f"### {month_start.strftime('%B %Y')} ")
-
-        # Weekday header
-        header_cols = st.columns(7)
-        for idx, wd in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]):
-            header_cols[idx].markdown(f"<div style='text-align: center; font-weight: bold;'>{wd}</div>", unsafe_allow_html=True)
 
         weeks = month_weeks(month_start)
         for week in weeks:
@@ -225,49 +289,25 @@ def weekly_planner_page():
                 in_month = (day.month == month_start.month)
                 is_today = (day == today)
                 with col:
-                    color = "inherit" if in_month else "#bfbfbf"
-                    header_bg = "#eef8ef" if is_today else "transparent"
-                    header_color = "#0f6716" if is_today else color
+                    header_bg = "#a5c4a8ab" if is_today else "transparent"
                     st.markdown(
-                        f"<div style='text-align: center; color: {header_color}; font-weight: bold; background:{header_bg}; border-radius:6px; padding:4px;'>"
-                        f"{day.day}</div>",
-                        unsafe_allow_html=True,
+                                f"<div style='text-align: center; font-weight: bold; background:{header_bg}; border-radius:6px; padding:4px;'>"
+                                f"{day.strftime('%a %d')}</div>",
+                                unsafe_allow_html=True,
                     )
+                    st.markdown("")
+                    
                     if in_month:
-                        day_events = [e for e in events if e["date"] == day]
-                        if not day_events:
+                        day_recipes = [r for r in recipes if r["date"] == day]
+                        if not day_recipes:
                             st.caption("No meals")
-                        for e in day_events:
-                            if st.button(e["title"], key=f"m-{day}-{e['title']}", use_container_width=True):
-                                st.session_state.selected_recipe = e
+                        for r in day_recipes:
+                            if st.button(r["title"], key=f"m-{day}-{r['title']}", use_container_width=True):
+                                st.session_state.selected_recipe = r
                                 st.session_state.dialog_open = False
                                 st.rerun()
 
-
-
-
-    # cols = st.columns(7)
-    # for i, day in enumerate(week_days):
-    #     with cols[i]:
-    #         # Highlight "Today" with a different style if it falls in the current week
-    #         is_today = day == today
-    #         day_label = day.strftime('%a %d')
-    #         st.markdown(f"<div style='text-align: center; color: {'#C8DDC5' if is_today else 'inherit'}; font-weight: bold;'>{day_label}</div>", unsafe_allow_html=True)
-            
-    #         day_events = [e for e in events if e["date"] == day]
-
-    #         for e in day_events:
-    #             if st.button(e["title"], key=f"{day}-{e['title']}"):
-    #                 st.session_state.selected_event = e
-                # Use st.container with border for a "Card" look
-                # with st.container(border=True):
-                #     # Show meal type as a small badge
-                #     st.caption(e['meal_type'].upper())
-                #     if st.button(e["title"], key=f"{day}-{e['title']}", use_container_width=True):
-                #         st.session_state.selected_event = e
-                #         st.rerun()
-
-    # ---------- Recipe popup ----------
+    # Recipe pop-up
     if st.session_state.get("selected_recipe") and not st.session_state.get("dialog_open", False):
         st.session_state.dialog_open = True
         recipe = st.session_state.selected_recipe
@@ -285,40 +325,27 @@ def weekly_planner_page():
             ingredients = recipe.get('ingredients')
             if ingredients:
                 if isinstance(ingredients, str):
-                    # Parse string ingredients
                     ingredient_lines = ingredients.split(',')
                     for ingredient in ingredient_lines:
                         ingredient = ingredient.strip()
                         if ingredient:
                             st.markdown(f"• {ingredient}")
                 elif isinstance(ingredients, list):
-                    # If it's already a list
                     for ingredient in ingredients:
                         st.markdown(f"• {ingredient}")
 
-            st.markdown(f"**Instructions:**")
-            
             # Parse and display instructions as numbered steps
+            st.markdown(f"**Instructions:**")
             instructions = recipe['details']
             
-            # Split by pattern like "1. ", "2. ", etc.
             steps = re.split(r'\d+\.\s+', instructions)
-            
-            # Remove empty first element if split started with a number
             steps = [step.strip() for step in steps if step.strip()]
             
-            # Display each step as a bullet point
             for i, step in enumerate(steps, 1):
                 st.markdown(f"• **Step {i}:** {step}")
             
             if recipe.get('link'):
                 st.markdown(f"**[View Recipe Link]({recipe['link']})**")
-
-            # Close button to clear state and prevent auto re-open
-            # if st.button("Close"):
-            #     st.session_state.selected_recipe = None
-            #     st.session_state.dialog_open = False
-            #     st.rerun()
 
         show_event_dialog()
         

@@ -1,5 +1,18 @@
-import streamlit as st
+"""
+About Us page for the SmartBites Streamlit app.
 
+Purpose:
+- Present SmartBites mission, product overview, and team background.
+
+Entry Point:
+- `about_us_page()`: renders the static content and sets page config.
+"""
+
+
+import streamlit as st
+from langfuse import observe
+
+@observe
 def about_us_page():
     st.set_page_config(
         page_title="*SmartBites* | About Us",
@@ -7,8 +20,6 @@ def about_us_page():
         layout="centered",
         initial_sidebar_state='collapsed'
     )
-
-
 
     st.markdown(
                 """

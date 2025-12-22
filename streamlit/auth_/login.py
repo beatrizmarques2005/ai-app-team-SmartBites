@@ -28,6 +28,7 @@ Entry Point:
 """
 
 import streamlit as st
+from langfuse import observe
 from pathlib import Path
 import sys
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,7 +36,14 @@ sys.path.insert(0, str(ROOT))
 
 from src.authentication import AuthService
 
+@observe
 def login_page():
+    st.set_page_config(
+        page_title="SmartBites | Login",
+        page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg",
+        layout="centered",
+        initial_sidebar_state='collapsed'
+    )
     st.title('Login to your *SmartBites* Account!')
 
     st.session_state.email = st.text_input('Email', value =  st.session_state.email, placeholder = 'you@example.com')
@@ -63,15 +71,15 @@ def login_page():
                 if user_id:
                     st.session_state.user_id = user_id
                     st.session_state.auth = auth 
-                    st.success("✅ Login successful!")
+                    st.success("Login successful!")
                     st.session_state['logged_in'] = True
                     st.rerun()
 
                 else:
-                    st.error("❌ Invalid email or password")
+                    st.error("Invalid email or password")
 
             except Exception:
-                st.error("❌ Invalid email or password")
+                st.error("Invalid email or password")
 
     st.markdown("---")
 

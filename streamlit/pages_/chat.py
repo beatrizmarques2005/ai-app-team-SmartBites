@@ -1,14 +1,35 @@
+"""
+Chat page for the SmartBites Streamlit app.
+
+Purpose:
+- Provide a conversational interface for recipe, ingredient, and cooking questions.
+
+UI Flow:
+- Configures the page (title, icon, centered layout, collapsed sidebar).
+- Initializes `AIService` in session and creates a chat session via `AIService.create_chat()`.
+- Renders past messages using `st.chat_message`.
+- Captures new input with `st.chat_input`, sends it to the AI, appends the response, then `st.rerun()`.
+
+Session State Keys:
+- `auth`: `AuthService` instance; must provide a valid `user_id`.
+- `user_id`: authenticated user identifier used for routing and scoping chat.
+- `ai`: `AIService` instance used to send/receive messages.
+- `chat`: handle/object returned by `AIService.create_chat()` for the active session.
+- `messages`: list of `{role, content}` dicts representing chat history.
+- `chat_input`: Streamlit-managed key for the chat input widget.
+
+Entry Point:
+- `chat_page()`: renders the chat UI and handles message send/receive lifecycle.
+"""
+
 import streamlit as st
+from langfuse import observe
 from dotenv import load_dotenv
 import os
 import sys
-
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-
-# Add the project root to the Python path
 if project_root not in sys.path:
     sys.path.append(project_root)
-
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
 
@@ -17,6 +38,7 @@ if "auth" not in st.session_state:
 
 load_dotenv()
 
+@observe
 def chat_page():
     st.set_page_config(
         page_title="SmartBites | Chat Bot",
@@ -24,18 +46,11 @@ def chat_page():
         layout="centered", 
         initial_sidebar_state="collapsed"
     )
-
-    if "user_id" not in st.session_state or not st.session_state.user_id:
-        st.switch_page("login.py")
-
     st.title("Chat Bot")
     st.markdown("Ask me anything about recipes, ingredients, or cooking tips!")
-    
-    # user_id = st.session_state.get("user_id")
 
     if "ai" not in st.session_state:
         st.session_state.ai = AIService()
-
 
     auth = st.session_state.auth
 
@@ -49,19 +64,11 @@ def chat_page():
     if 'messages' not in st.session_state:
         st.session_state.messages = []
 
-
-
-    # 2. Render messages
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"], avatar="🧑‍🍳" if msg["role"] == "user" else "🤖"):
             st.markdown(msg["content"])
 
-    # 3. Place the input OUTSIDE (below) the container.
-    # Streamlit automatically anchors this to the bottom of the tab area.
-    prompt = st.chat_input("Type your message here...", key="chat_input")
-
-    if prompt:
-        # Add user message and get response, then rerun to display from history
+    if prompt := st.chat_input("Type your message here...", key="chat_input"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         
         with st.spinner("SmartBites is cooking..."):
@@ -71,134 +78,4 @@ def chat_page():
             except Exception as e:
                 st.error(f"Error: {e}")
         
-        st.rerun()
-
-
-
-    # with tab2:
-        # st.subheader("Analyze and store a receipt")
-        # uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
-        # receipt_parser = ReceiptParser()
-
-        # if uploaded is not None:
-        #     try:
-        #         file_bytes = uploaded.read()
-        #         mime_type = getattr(uploaded, "type", None)
-
-        #         with st.spinner("Analyzing receipt..."):
-        #             analysis = receipt_parser.analyze_receipt(file_bytes, mime_type=mime_type)
-
-        #         if "error" in analysis:
-        #             st.error(f"Analysis error: {analysis['error']}")
-        #             st.stop()
-
-        #         # USING AN EXPANDER: This prevents Tab 2 from becoming so long 
-        #         # that it pushes the Chat Input in Tab 1 down.
-        #         with st.expander("📄 View Parsed Receipt Details", expanded=True):
-        #             st.write({
-        #                 "store_name": analysis.get("store_name"),
-        #                 "purchase_date": analysis.get("purchase_date"),
-        #                 "total": analysis.get("total"),
-        #             })
-                    
-        #             if items := analysis.get("items"):
-        #                 st.markdown("**Items Found:**")
-        #                 for i, item in enumerate(items, 1):
-        #                     st.write(
-        #                         f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
-        #                         f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
-        #                     )
-
-        #         if st.button("Save to pantry & shopping list", key="save_receipt"):
-        #             user_id = st.session_state.get("user_id")
-        #             if not user_id:
-        #                 st.error("User ID missing; please log in again.")
-        #             else:
-        #                 try:
-        #                     with st.spinner("Saving..."):
-        #                         saved = receipt_parser.process_and_store(
-        #                             file_bytes, mime_type=mime_type, user_id=user_id
-        #                         )
-                            
-        #                     if "error" in saved:
-        #                         st.error(f"Failed to save: {saved['error']}")
-        #                     else:
-        #                         st.success("Receipt saved successfully!")
-        #                         if "pantry_warnings" in saved:
-        #                             st.warning("\n".join(saved["pantry_warnings"]))
-        #                 except Exception as e:
-        #                     st.error(f"Failed to save receipt: {e}")
-        #     except Exception as e:
-        #         st.error(f"Receipt processing failed: {e}")
-
-    
-
-
-
-
-        # st.subheader("Analyze and store a receipt")
-        # uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
-        # receipt_parser = ReceiptParser()
-
-        # if uploaded is not None:
-        #     try:
-        #         file_bytes = uploaded.read()
-        #         mime_type = getattr(uploaded, "type", None) # or "application/octet-stream"
-
-        #         # receipt_parser.validate_file(file_bytes, mime_type)
-
-        #         extracted_text = receipt_parser.extract_text(file_bytes, mime_type)
-
-        #         with st.spinner("Analyzing receipt..."):
-        #             analysis = receipt_parser.analyze_receipt(file_bytes, mime_type=mime_type)
-
-        #         # Debug: Show any errors
-        #         if "error" in analysis:
-        #             st.error(f"Analysis error: {analysis['error']}")
-        #             st.stop()
-
-        #         # st.session_state.last_receipt = analysis
-        #         # st.session_state.last_receipt_file = file_bytes
-        #         # st.session_state.last_receipt_mime = mime_type
-
-        #         # with st.expander("Raw extracted text"):
-        #         #     st.text_area("", value=extracted_text, height=200)
-
-        #         st.markdown("**Parsed receipt**")
-        #         st.write({
-        #             "store_name": analysis.get("store_name"),
-        #             "purchase_date": analysis.get("purchase_date"),
-        #             "total": analysis.get("total"),
-        #         })
-        #         if items := analysis.get("items"):
-        #             st.markdown("**Items**")
-        #             for i, item in enumerate(items, 1):
-        #                 st.write(
-        #                     f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
-        #                     f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
-        #                 )
-
-        #         if st.button("Save to pantry & shopping list", key="save_receipt"):
-        #             user_id = st.session_state.get("user_id")
-        #             if not user_id:
-        #                 st.error("User ID missing; please log in again.")
-        #             else:
-        #                 try:
-        #                     with st.spinner("Saving and updating pantry..."):
-        #                         saved = receipt_parser.process_and_store(
-        #                             file_bytes, mime_type=mime_type, user_id=user_id
-        #                         )
-                            
-        #                     # Check if save succeeded
-        #                     if "error" in saved:
-        #                         st.error(f"Failed to save: {saved['error']}")
-        #                     else:
-        #                         st.success("Receipt saved and pantry/shopping list updated.")
-        #                         st.json(saved)
-        #                         # Show any warnings
-        #                         if "pantry_warnings" in saved:
-        #                             st.warning("Some items had issues updating pantry:\n" + "\n".join(saved["pantry_warnings"]))
-        #                 except Exception as e:
-        #                     st.error(f"Failed to save receipt: {e}")
-        #     except Exception as e:
-        #         st.error(f"Receipt processing failed: {e}")
+        st.rerun()  

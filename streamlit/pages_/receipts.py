@@ -1,14 +1,37 @@
+"""
+Receipts Analyzer page for the SmartBites Streamlit app.
+
+Purpose:
+- Upload and analyze receipt images or PDFs to extract items and details.
+- Save extracted items to the user's pantry with quantities via `ReceiptParser`.
+
+UI Flow:
+- Configures the page (title, icon, centered layout).
+- Auth gate: requires `user_id` in session; redirects to login if missing.
+- File uploader accepts PDF and image formats (png, jpg, jpeg).
+- On upload, calls `ReceiptParser.analyze_receipt()` to extract items (name, quantity, etc.).
+- Displays parsed items as a numbered list.
+- "Save to pantry" button calls `ReceiptParser.process_and_store()` to insert into `pantry_items` table.
+- Shows success/error messages and any warnings from the save operation.
+
+Session State Keys:
+- `user_id`: authenticated user identifier required for pantry data scoping.
+- `auth`: `AuthService` instance initialized at module level.
+- `ai`: `AIService` instance for potential downstream use.
+
+Database Schema:
+- Writes to `pantry_items` table with fields derived from receipt analysis (ingredient_name, quantity, user_id, etc.).
+
+Entry Point:
+- `receipts_page()`: renders receipt upload UI and handles analysis/storage workflow.
+"""
 import streamlit as st
+from langfuse import observe
+from pathlib import Path
 from dotenv import load_dotenv
-import os
 import sys
-
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-
-# Add the project root to the Python path
-if project_root not in sys.path:
-    sys.path.append(project_root)
-
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
 from src.workflows.receipt_parser import ReceiptParser
@@ -18,13 +41,16 @@ if "auth" not in st.session_state:
 
 load_dotenv()
 
-
+@observe
 def receipts_page():
     st.set_page_config(
         page_title="Receipts Analyzer",
-        page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/robot.svg",
+        page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/receipt.svg",
         layout="centered"
     )
+
+    st.title("Receipts Analyzer")
+    st.subheader("Analyze and store a receipt")
 
     if "user_id" not in st.session_state or not st.session_state.user_id:
         st.switch_page("login.py")
@@ -39,12 +65,10 @@ def receipts_page():
         st.error("Authentication service not available.")
         return
 
-    st.title("Receipts Analyzer")
-    
     if "ai" not in st.session_state:
         st.session_state.ai = AIService()
-
-    st.subheader("Analyze and store a receipt")
+ 
+    # Receipt upload and analysis
     uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"], )
     receipt_parser = ReceiptParser()
 
@@ -59,14 +83,6 @@ def receipts_page():
             if "error" in analysis:
                 st.error(f"Analysis error: {analysis['error']}")
                 st.stop()
-
-            # USING AN EXPANDER: This prevents Tab 2 from becoming so long 
-            # that it pushes the Chat Input in Tab 1 down.
-                # st.write({
-                #     "store_name": analysis.get("store_name"),
-                #     "purchase_date": analysis.get("purchase_date"),
-                #     "total": analysis.get("total"),
-                # })
                 
             if items := analysis.get("items"):
                 st.markdown("**Items Found:**")
@@ -75,6 +91,7 @@ def receipts_page():
                         f"{i}. {item.get('name')} — quantity: {item.get('quantity')} "
                     )
 
+            # Save items to pantry
             if st.button("Save to pantry", key="save_receipt"):
                 user_id = st.session_state.get("user_id")
                 if not user_id:

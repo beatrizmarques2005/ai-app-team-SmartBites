@@ -1,5 +1,43 @@
+"""
+SmartBites main application entry point.
+
+Purpose:
+- Serve as the central router for the SmartBites Streamlit multipage application.
+- Handle authentication flow (login/signup) and route authenticated users to feature pages.
+- Provide a sidebar navigation menu with icons and a logout button.
+
+UI Flow:
+- Initializes session state variables for authentication and navigation.
+- If user is not logged in, displays either login or signup page based on `show_signup` flag.
+- Once authenticated, renders a sidebar with:
+  - SmartBites logo and slogan
+  - Navigation menu with icons (Chat, Receipt Analyzer, Planner, Pantry, Shopping List, Profile, About Us)
+  - Logout button
+  - Version number
+- Routes to the selected page based on sidebar menu selection.
+
+Session State Keys:
+- `auth`: `AuthService` instance for authentication operations.
+- `logged_in`: boolean indicating if user is authenticated.
+- `user_id`: authenticated user's unique identifier.
+- `email`, `password`: credentials used during login/signup.
+- `show_signup`: boolean toggle between login and signup views.
+- `current_page`: tracks the currently selected page in the navigation.
+
+Routing:
+- Pre-authentication: routes to `login_page()` or `signup_page()`.
+- Post-authentication: routes to feature pages based on sidebar selection.
+
+Entry Point:
+- This file is the Streamlit application entry point, run via `streamlit run App.py`.
+"""
 import streamlit as st
 from streamlit_option_menu import option_menu
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from src.authentication import AuthService
 from auth_.login import login_page
 from auth_.signup import signup_page
 from pages_.profile import profile_page
@@ -11,48 +49,22 @@ from pages_.shopping_list import shopping_list_page
 from pages_.about_us import about_us_page
 
 
-import sys
-from pathlib import Path
+# Initialize session state defaults
+defaults = {
+    'auth': AuthService(),
+    'logged_in': False,
+    'user_id': None,
+    'email': '',
+    'password': '',
+    'show_signup': False,
+    'current_page': 'chat'
+}
 
+for key, value in defaults.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-from src.authentication import AuthService
-
-if "auth" not in st.session_state:
-    st.session_state.auth = None
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-
-
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-
-from src.authentication import AuthService
-auth = AuthService()
-
-if 'logged_in' not in st.session_state:
-    st.session_state['logged_in'] = False
-
-if 'username' not in st.session_state:
-    st.session_state['username'] = ''
-
-if 'email' not in st.session_state:
-    st.session_state['email'] = ''
-
-if 'password' not in st.session_state:
-    st.session_state['password'] = ''
-
-if 'user_id' not in st.session_state:
-    st.session_state['user_id'] = None
-
-if 'show_signup' not in st.session_state:
-    st.session_state['show_signup'] = False
-
-if 'current_page' not in st.session_state:
-    st.session_state['current_page'] = 'chat'
-
-
+auth = st.session_state.auth
 
 if not st.session_state['logged_in']:
     if st.session_state['show_signup']:
@@ -62,14 +74,16 @@ if not st.session_state['logged_in']:
     st.stop()
 
 
+# Sidebar configuration
 with st.sidebar:
     st.image("images\SmartBites_logo.png", use_container_width=True)
     st.markdown("<h1 style='text-align: center; margin-bottom: 0rem;'><em><strong>SmartBites</strong></em></h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; margin-bottom: 0.05rem; font-weight: 400;'>Your ingredients.<br>Your meals.<br>Your way.</h2>", unsafe_allow_html=True)
     st.markdown("<hr style='margin: 0.25rem 0; border: 1px solid #e0e0e0;' />", unsafe_allow_html=True)
+
+    # Menu 
     selected = option_menu(
-        menu_title= None, 
-        # menu_icon= None, 
+        menu_title= None,  
         options=["Chat", "Receipt Analyzer", "Planner", "Pantry",  "Shopping List", "Profile", "About Us"],
         icons = ["robot", "receipt", "calendar-week", "basket", "list-check", "person", "info-circle"],
         default_index=0,
@@ -77,20 +91,14 @@ with st.sidebar:
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#ffffffff", "font-size": "20px"}, 
             "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#eee"},
-            "nav-link-selected": {"background-color": "#9eac9996", "color": "white"}, # The "pill" effect
+            "nav-link-selected": {"background-color": "#9eac9996", "color": "white"},
         }
     )
     
-    # Dynamic spacer that fills remaining space
+    # Style logout button red
     st.markdown(
         """
         <style>
-        /* Make sidebar scrollable and add spacer */
-        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            padding-bottom: 80px;
-        }
-        
-        /* Style logout button red */
         button[kind="primary"]:has(p) {
             background-color: #c62828 !important;
             color: #fff !important;
@@ -100,46 +108,30 @@ with st.sidebar:
             background-color: #b71c1c !important;
         }
         </style>
-        <div style="flex-grow: 1;"></div>
         """,
         unsafe_allow_html=True,
     )
+    
+    # Spacer to push logout button to bottom
+    st.markdown("<div style='padding: 15rem 0;'></div>", unsafe_allow_html=True)
 
-    if st.button("Logout", type="primary"):
+    if st.button("Logout", type="primary", use_container_width=True):
         auth.logout()
         st.session_state.clear()
         st.rerun()
         
-    st.markdown("<span style='font-size: 0.9rem;'>version 1.0</span>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; font-size: 0.9rem; margin-top: 0.5rem;'>version 1.0</p>", unsafe_allow_html=True)
 
-page_map = {
-    "Profile": "profile",
-    "Chat": "chat",
-    "Receipt Analyzer": "receipts",
-    "Planner": "planner",
-    "Pantry": "pantry",
-    "Shopping List": "shopping_list", 
-    "About Us": "about_us"
+# Page routing 
+page_routes = {
+    "Chat": chat_page,
+    "Receipt Analyzer": receipts_page,
+    "Planner": weekly_planner_page,
+    "Pantry": pantry_page,
+    "Shopping List": shopping_list_page,
+    "Profile": profile_page,
+    "About Us": about_us_page
 }
 
-
-
-
-st.session_state['current_page'] = page_map[selected]
-
-if st.session_state['current_page'] == 'profile':
-    profile_page()
-elif st.session_state['current_page'] == 'chat':
-    chat_page()
-elif st.session_state['current_page'] == 'planner':
-    weekly_planner_page()
-elif st.session_state['current_page'] == 'pantry':
-    pantry_page()
-elif st.session_state['current_page'] == 'receipts':
-    receipts_page()
-elif st.session_state['current_page'] == 'shopping_list':
-    shopping_list_page()
-elif st.session_state['current_page'] == 'about_us':
-    about_us_page()
-    
-    
+if selected in page_routes:
+    page_routes[selected]()
