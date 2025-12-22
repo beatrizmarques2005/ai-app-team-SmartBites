@@ -1,12 +1,30 @@
+"""
+Shopping List Writer Module
+---------------------------
+
+This module provides functionality to add, update, and remove items
+from a user's shopping list in the database. It ensures efficient
+database operations by minimizing the number of queries executed.
+
+"""
+
 import logging
-from typing import List, Dict, Optional, TypedDict, Any
+from typing import List, Dict, TypedDict
 from langfuse import observe
+
 from src.authentication import AuthService
 from src.db.client import supabase
 
 logger = logging.getLogger(__name__)
 
 class ShoppingItem(TypedDict):
+    """
+    A typed dictionary representing a shopping item.
+
+    Attributes:
+        ingredient_name (str): The name of the ingredient to be purchased.
+        quantity (float): The amount or quantity of the ingredient needed.
+    """
     ingredient_name: str
     quantity: float
 
@@ -24,10 +42,36 @@ class ShoppingListWriter:
         user_approval: bool = True,
         merge_if_exists: bool = True,
     ) -> Dict[str, list]:
+        
         """
-        Adds multiple items to the shopping list. 
-        Expected format for 'items': [{"ingredient_name": "apple", "quantity": 2}, ...]
+        Add or update shopping list items for the current user.
+        This method processes a list of shopping items and either inserts new items
+        or updates existing ones based on the ingredient name. It optimizes database
+        operations by pre-fetching all current items to avoid N+1 queries and uses
+        bulk insert for new items.
+        Args:
+            items (List[Dict[str, object]]): A list of dictionaries containing shopping items.
+                Each dictionary should have the following keys:
+                - "ingredient_name" (str): The name of the ingredient (required).
+                - "quantity" (int, optional): The quantity to add. Defaults to 1.
+            user_approval (bool, optional): Whether the user has approved this operation.
+                Defaults to True. If False, the operation is aborted.
+            merge_if_exists (bool, optional): Whether to merge quantities if an ingredient
+                already exists in the shopping list. Defaults to True. If False, existing
+                items are skipped.
+        Returns:
+            Dict[str, list]: A dictionary containing the operation results with the
+                following keys:
+                - "inserted" (list): Successfully inserted shopping list items.
+                - "updated" (list): Successfully updated shopping list items.
+                - "skipped" (list): Items that were skipped because they already exist
+                  and merge_if_exists is False.
+                - "error" (str, optional): Error message if an exception occurs during
+                  database operations.
+        Raises:
+            None. Exceptions are caught and logged, with errors returned in the result dictionary.
         """
+
         if not user_approval:
             logger.info("Operation aborted: User approval required.")
             return {"inserted": [], "updated": [], "skipped": []}
@@ -77,7 +121,7 @@ class ShoppingListWriter:
                     results["skipped"].append(name)
             else:
                 to_insert.append({
-                    "ingredient_name": name,
+                    "ingredient_name": name.lower(),
                     "quantity": qty,
                     "user_id": self.user_id
                 })
@@ -93,8 +137,20 @@ class ShoppingListWriter:
 
         return results
 
+    @observe()
     def remove_item(self, item_id: int) -> bool:
-        """Removes item and returns success status."""
+        """
+        Remove an item from the shopping list.
+        
+        Args:
+            item_id (int): The unique identifier of the item to remove.
+        
+        Returns:
+            bool: True if the item was successfully deleted, False otherwise.
+        
+        Raises:
+            None: Exceptions are caught and logged internally.
+        """
         try:
             res = (
                 supabase.table("shopping_list")

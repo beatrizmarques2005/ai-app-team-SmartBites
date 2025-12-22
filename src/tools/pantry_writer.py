@@ -1,6 +1,14 @@
-import json
+"""
+Pantry Writer Module
+--------------------
+
+This module provides functionality to insert, remove, and consume pantry items
+based on AI understanding and user authentication.
+
+"""
+
 from datetime import datetime
-from typing import Optional, List
+from typing import List
 from langfuse import observe
 
 from src.authentication import AuthService
@@ -15,21 +23,24 @@ class PantryWriter:
         if not self.user_id:
             raise ValueError("User must be authenticated to add pantry items.")
 
-    @observe()  # Traces to Langfuse
+    @observe()
     def add_items(self, items: List[dict]) -> str:
         """
-        Insert multiple pantry items into the database.
-
-        Each item dict may include:
-            - ingredient_name (required)
-            - quantity (required)
-            - store_name (optional)
-            - purchase_date (optional)
-
-        If purchase_date are not provided, they default to now (UTC).
-
+        Add multiple pantry items to the database.
+        Args:
+            items (List[dict]): A list of dictionaries containing pantry item details.
+                Each dictionary should have the following keys:
+                - ingredient_name (str): The name of the ingredient
+                - quantity (str): The quantity of the ingredient
+                - store_name (str): The store where the item was purchased
+                - purchase_date (str, optional): The purchase date in ISO format.
+                  If not provided, defaults to today's date.
+                - user_id (str): The user ID (automatically added from self.user_id)
         Returns:
-            A friendly confirmation string summarizing what was inserted.
+            str: A human-readable confirmation message listing all added items
+                in the format "Added to pantry: <quantity> <ingredient_name>, ..."
+        Raises:
+            Exception: If the database insert operation fails.
         """
         inserted = []
 
@@ -46,7 +57,7 @@ class PantryWriter:
             record = {
                 "ingredient_name": ingredient_name,
                 "quantity": quantity,
-                "store_name": store_name,
+                "store_name": store_name.lower() if store_name else None,
                 "purchase_date": purchase_date,
                 "user_id": self.user_id,
             }
@@ -54,7 +65,6 @@ class PantryWriter:
             res = supabase.table("pantry_items").insert(record).execute()
             inserted.append(record)
 
-        # ------- Confirmation Text -------
         readable = []
         for r in inserted:
             readable.append(f"{r['quantity']} {r['ingredient_name']}")
@@ -84,7 +94,6 @@ class PantryWriter:
             name = ing["ingredient_name"]
             qty_needed = ing["quantity"]
 
-            # Fetch pantry items for this ingredient, ordered by purchase_date (oldest first)
             res = supabase.table("pantry_items") \
                 .select("*") \
                 .eq("user_id", self.user_id) \
@@ -95,7 +104,7 @@ class PantryWriter:
             pantry_items = res.data
 
             if not pantry_items:
-                continue  # No stock, maybe log warning
+                continue
 
             for item in pantry_items:
                 if qty_needed <= 0:
@@ -104,11 +113,9 @@ class PantryWriter:
                 available_qty = item["quantity"]
 
                 if available_qty <= qty_needed:
-                    # Consume entire item
                     supabase.table("pantry_items").delete().eq("id", item["id"]).execute()
                     qty_needed -= available_qty
                 else:
-                    # Partially consume
                     new_qty = available_qty - qty_needed
                     supabase.table("pantry_items").update({"quantity": new_qty}).eq("id", item["id"]).execute()
                     qty_needed = 0

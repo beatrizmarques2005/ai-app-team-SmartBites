@@ -87,9 +87,23 @@ class AIService:
             mime_type = "image/jpeg"
         
         try:
-            schema_prompt = f"""Extract receipt data as JSON:
+
+            schema_prompt = f"""
+                            You are a strict JSON generator.
+
+                            Extract receipt data following EXACTLY this schema:
                             {json.dumps(schema, indent=2)}
-                            Return ONLY valid JSON."""
+
+                            Rules (MANDATORY):
+                            - Output MUST be valid JSON
+                            - Use double quotes for all keys and strings
+                            - Do NOT include trailing commas
+                            - Do NOT include comments
+                            - Do NOT include explanations or extra text
+                            - Use null instead of None
+                            - Missing values must be null
+                            - Output JSON only, no markdown, no backticks
+                            """
 
             # sending file directly to Gemini via multimodal API
             response = self.client.models.generate_content(
@@ -345,3 +359,45 @@ class AIService:
 
         return "🚦 SmartBites is currently busy. Please try again in a minute."
 
+    @observe()
+    def _get_response_text(self, response) -> str:
+        if not response:
+            return ""
+
+        text = getattr(response, "text", None)
+        if isinstance(text, str):
+            return text
+
+        try:
+            return response.candidates[0].content.parts[0].text or ""
+        except Exception:
+            return ""
+
+    @observe()
+    def is_edible(self, ingredient_name: str) -> bool:
+        """
+        Determines if a given ingredient is edible using the AI model.
+        Args:
+            ingredient_name (str): The name of the ingredient to check.
+        Returns:
+            bool: True if the ingredient is edible, False otherwise.
+        """
+        try:
+            prompt = f"Is '{ingredient_name}' an edible ingredient? Answer with 'Yes' or 'No'."
+
+            response = self.client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.0,
+                    max_output_tokens=10
+                )
+            )
+
+            answer = self._get_response_text(response)
+            if not answer:
+                return True
+            
+            return answer.strip().lower().startswith("yes")
+        except Exception:
+            return True
