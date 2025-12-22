@@ -70,14 +70,14 @@ with st.sidebar:
     selected = option_menu(
         menu_title= None, 
         # menu_icon= None, 
-        options=[ "Chat", "Receipt Analyzer", "Planner", "Pantry",  "Shopping List", "Profile", "About Us"],
+        options=["Chat", "Receipt Analyzer", "Planner", "Pantry",  "Shopping List", "Profile", "About Us"],
         icons = ["robot", "receipt", "calendar-week", "basket", "list-check", "person", "info-circle"],
         default_index=0,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#555", "font-size": "20px"}, 
+            "icon": {"color": "#ffffffff", "font-size": "20px"}, 
             "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#eee"},
-            "nav-link-selected": {"background-color": "#0f67166e", "color": "black"}, # The "pill" effect
+            "nav-link-selected": {"background-color": "#9eac9996", "color": "white"}, # The "pill" effect
         }
     )
     

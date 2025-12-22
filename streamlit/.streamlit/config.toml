@@ -48,7 +48,7 @@ chartSequentialColors = ["#e4f5ff", "#c7ebff", "#a6dcff", "#83c9ff", "#60b4ff", 
 
 [theme.sidebar]
 
-backgroundColor = '#effaebff'
-textColor = '#31333f'
+backgroundColor = '#658359ff'
+textColor = '#ffffffff'
 borderColor = '#a0c090'
 showWidgetBorder = true
