@@ -115,7 +115,7 @@ streamlit run streamlit\App.py
 ```
 
 ## <font color="#acc95b" size=5>DEPLOYMENT</font>
-**Live Application:** [Deployed Link](XXXXX)
+**Live Application:** [Deployed Link](https://ai-app-smartbites.streamlit.app/)
  
 **Deployment Platform:** *Streamlit Cloud Community*
 
