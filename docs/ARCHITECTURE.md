@@ -33,7 +33,7 @@
 University students often face difficulties planning and preparing meals due to busy and unpredictable schedules. This frequently leads to repetitive meals, inefficient use of available ingredients, time-consuming planning, and increased food waste. *SmartBites* aims to simplify meal planning by helping users create practical meal plans and recipes based on the ingredients they already have, their time constraints, and their dietary preferences.
 
 ### <font size=3>**TARGET USERS**</font>
-The primary users of *SmartBites* are university students who manage their own meals. These users typically have limited time, variable schedules, and a need for simple, flexible, and affordable meal-planning solutions.
+The primary users of *SmartBites* are university students who manage their own meals. These users typically have limited time, variable schedules, and a need for simple and flexible meal-planning solutions.
 
 ### <font size=3>**CORE VALUE PROPOSITION**</font>
 *SmartBites* transforms meal planning into a fast and stress-free process by providing personalized meal plans and recipe suggestions based on available ingredients, user preferences, and time constraints.
@@ -100,13 +100,14 @@ deterministic tools that encapsulate database access and domain-specific operati
 
 #### <font size=3>**AI PLATFORM**</font>
 
-**LLM Provider:** Google *Gemini* (*Gemini* 2.5 Flash)
+**LLM Provider:** Google *Gemini*<br>
+**MODEL**: *Gemini* 2.5 Flash
 
 *Gemini* is used exclusively for reasoning, natural language understanding, and content generation.
 All side effects (database reads/writes) are executed through explicit tool calls, ensuring that
 the backend remains deterministic and auditable.
 
-#### <font size=3>**RESPONSABILITIES**</font>
+#### <font size=3>**RESPONSIBILITIES**</font>
 
 The Service Layer (*AIService*) is responsible for:
 
@@ -241,7 +242,7 @@ authenticated user data retrieved through tools.
 }
 ```
 
-## <font color="#acc95b" size=5>PART 5: ARCHITECTURE DECISIONS & TECNICAL CHOICES</font>
+## <font color="#acc95b" size=5>PART 5: ARCHITECTURE DECISIONS & TECHNICAL CHOICES</font>
 
 | **Decision** | **Rationale** |
 |---------------|---------------|
