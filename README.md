@@ -58,7 +58,7 @@ This section presents the **design of our system architecture** along with the m
 | **Observability**  | *Langfuse* |
 | **Deployment**  | *Streamlit Cloud Community* |
 
-[$\rightarrow$ View Full Architecture Details](docs\ARCHITECTURE.md)
+[View Full Architecture Details](docs\ARCHITECTURE.md)
 
 ##  <font color="#acc95b" size=5>INSTALLATION & SETUP</font>
 
