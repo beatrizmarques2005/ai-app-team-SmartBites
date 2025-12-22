@@ -1,3 +1,33 @@
+"""
+Signup page for the SmartBites Streamlit app.
+
+Purpose:
+- Render a 3-step wizard to collect user credentials and profile details.
+- Create a Supabase auth user via `AuthService.signup()`.
+- Persist user profile data in the `users` table.
+- Log the user in automatically on successful account creation.
+- Provide a route back to the login flow for existing users.
+
+UI Flow:
+- Step 0: Email and password form; calls `AuthService.signup()`, extracts `user.id`, advances to step 1.
+- Step 1: Personal information (name, birth date, gender, household, nationality); advances to step 2.
+- Step 2: Preferences (dietary, restrictions, cuisines); inserts consolidated profile to `users` table,
+    logs in via `AuthService.login()`, sets `auth` and `logged_in`, and triggers `st.rerun()`.
+- Progress bar displays current step (0..2) out of 3.
+- Back button navigates to previous step; Cancel/Clear resets wizard state.
+- "Already have an account? Log in" button sets `show_signup=False` and reruns to show login page.
+
+Session State Keys:
+- Input fields: `email`, `password`, `full_name`, `birth_date`, `gender`, `household_number`,
+    `nationality`, `dietary`, `restrictions`, `cuisines`.
+- Flow control: `signup_step` (0, 1, or 2); `signup_data` (cleared on cancel).
+- Auth: `user_id` (Supabase user ID extracted after step 0), `auth` (AuthService instance),
+    `logged_in` (boolean gate for authenticated routes).
+- Routing: `show_signup` (flag used by app router to display signup vs. login).
+
+Entry Point:
+- `signup_page()`: renders the wizard UI and handles form submission logic across all steps.
+"""
 import streamlit as st
 from pathlib import Path
 import sys

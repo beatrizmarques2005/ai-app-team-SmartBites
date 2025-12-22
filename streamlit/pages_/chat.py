@@ -11,7 +11,6 @@ if project_root not in sys.path:
 
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
-from src.workflows.receipt_parser import ReceiptParser
 
 if "auth" not in st.session_state:
     st.session_state.auth = AuthService()
@@ -52,10 +51,9 @@ def chat_page():
 
 
 
-    # 2. Render messages INSIDE the container
+    # 2. Render messages
     for msg in st.session_state.messages:
-        avatar = "🧑‍🍳" if msg["role"] == "user" else "🤖"
-        with st.chat_message(msg["role"], avatar=avatar):
+        with st.chat_message(msg["role"], avatar="🧑‍🍳" if msg["role"] == "user" else "🤖"):
             st.markdown(msg["content"])
 
     # 3. Place the input OUTSIDE (below) the container.
@@ -63,22 +61,17 @@ def chat_page():
     prompt = st.chat_input("Type your message here...", key="chat_input")
 
     if prompt:
-        # Save message to state
+        # Add user message and get response, then rerun to display from history
         st.session_state.messages.append({"role": "user", "content": prompt})
         
-        # Immediately show the user's prompt in the container
-        with st.chat_message("user", avatar="🧑‍🍳"):
-            st.markdown(prompt)
-
-        # Get and display AI Response
-        with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner("SmartBites is cooking..."):
-                try:
-                    response = st.session_state.ai.send_message(st.session_state.chat, prompt)
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-                except Exception as e:
-                    st.error(f"Error: {e}")
+        with st.spinner("SmartBites is cooking..."):
+            try:
+                response = st.session_state.ai.send_message(st.session_state.chat, prompt)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            except Exception as e:
+                st.error(f"Error: {e}")
+        
+        st.rerun()
 
 
 
@@ -209,134 +202,3 @@ def chat_page():
         #                     st.error(f"Failed to save receipt: {e}")
         #     except Exception as e:
         #         st.error(f"Receipt processing failed: {e}")
-     
-        
-        
-        
-        # with tab1:
-        #     # 1. Show all messages directly on the page
-        #     for msg in st.session_state.messages:
-        #         avatar = "🧑‍🍳" if msg["role"] == "user" else "🤖"
-        #         with st.chat_message(msg["role"], avatar=avatar):
-        #             st.markdown(msg["content"])
-
-        #     # 2. The Input must be at the very bottom of this block
-        #     # Streamlit will naturally try to anchor this to the bottom of the screen
-        #     prompt = st.chat_input("Type your message here...", key="chat_input")
-
-                with st.chat_message("user", avatar="🧑‍🍳"):
-                    st.markdown(prompt)
-
-                st.session_state.messages.append({"role": "user", "content": prompt})
-
-                with st.chat_message("assistant", avatar="🤖"):
-                    with st.spinner("SmartBites is cooking..."):
-                        try:
-                            response = st.session_state.ai.send_message(st.session_state.chat, prompt)
-                            st.write(response)
-                            st.session_state.messages.append({"role": "assistant", "content": response})
-
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                            st.info("Please try again later.")
-
-    
-
-                
-
-
-
-
-
-
-# import streamlit as st
-
-
-# def chat_page():
-#     # Page config
-#     st.set_page_config(
-#         page_title="Chat with AI",
-#         page_icon="🤖",
-#         layout="centered"
-#     )
-
-#     st.title("Your chat assistant")
-#     st.write("Ask your chat assistant anything related to cooking, recipes, or meal planning!")
-
-#     # Initialize AI client
-#     try:
-#         @st.cache_resource
-#         def get_services():
-#             ai = AIService()
-#             receipt = ReceiptService()
-#             doc = DocumentService()
-#             return {"ai": ai, "receipt": receipt, "doc": doc}
-
-#         services = get_services()
-
-#         if 'messages' not in st.session_state:
-#             st.session_state.messages = []
-
-#         # Receipt upload area
-#         uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
-
-#         if uploaded is not None:
-#             try:
-#                 with st.spinner("Analyzing receipt..."):
-#                     file_bytes = uploaded.read()
-#                     mime_type = getattr(uploaded, "type", None) or None
-#                     analysis = services["receipt"].analyze_receipt(file_bytes, mime_type=mime_type)
-
-#                     # Store parsed receipt in session for later chat context
-#                     st.session_state.last_receipt = analysis
-
-#                     st.success("Receipt analyzed")
-#             except Exception as e:
-#                 st.error(f"Failed to analyze receipt: {e}")
-
-#         # Show parsed receipt summary if present
-#         if 'last_receipt' in st.session_state:
-#             r = st.session_state.last_receipt
-#             st.markdown("**Parsed receipt**")
-#             st.write({
-#                 "store_name": r.get("store_name"),
-#                 "purchase_date": r.get("purchase_date"),
-#                 "total": r.get("total"),
-#             })
-#             if items := r.get("items"):
-#                 st.markdown("**Items**")
-#                 for i, item in enumerate(items, 1):
-#                     st.write(f"{i}. {item.get('name')} — qty: {item.get('quantity')} unit_price: {item.get('unit_price')} total: {item.get('total_price')}")
-
-#         # Render existing chat messages
-#         for msg in st.session_state.messages:
-#             with st.chat_message(msg["role"]):
-#                 st.write(msg["content"])
-
-#         # Chat input - route questions to AI with receipt context when available
-#         if prompt := st.chat_input("What's on your mind?"):
-#             st.session_state.messages.append({"role": "user", "content": prompt})
-#             with st.chat_message("user", avatar='🥸'):
-#                 st.write(prompt)
-
-#             # Build context from last receipt if available
-#             context = {}
-#             if 'last_receipt' in st.session_state:
-#                 context['receipt'] = st.session_state.last_receipt
-
-#             # Use AIService.answer_question which wraps chat_with_context
-#             try:
-#                response = services["ai"].answer_question(prompt, context)
-#             except Exception:
-#                 # fallback to chat_with_context
-#                 response = services["ai"].chat_with_context(prompt, context)
-
-#             st.session_state.messages.append({"role": "assistant", "content": response})
-#             with st.chat_message("assistant", avatar='🧑‍🍳'):
-#                 st.write(response)
-
-#     except Exception as e:
-#         st.error(f"Error initializing services: {e}")
-#         st.info("Make sure your .env file contains GOOGLE_API_KEY and other config variables")
-
-     
