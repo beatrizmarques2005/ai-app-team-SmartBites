@@ -1,9 +1,11 @@
 """
-Services package - Business logic layer
+Services
+--------
 
-All domain-specific logic lives here.
 Services orchestrate AI calls, tools, and business rules.
+
 """
+
 import sys
 from pathlib import Path
 

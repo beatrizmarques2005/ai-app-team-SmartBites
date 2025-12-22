@@ -1,13 +1,16 @@
 """
-AI Service - Consolidated AI helpers for the application
+AI Service
+----------
 
-This file merges extraction, recipe generation, recipe QA and flavor-suggestion
+Consolidated AI helpers for the application
+
+This file merges extraction, recipe suggestion, recipe QA and flavor-suggestion
 helpers into a single service to avoid scattering AI logic across multiple files.
+
 """
 import json
 import os
 from pathlib import Path
-from io import BytesIO
 from datetime import datetime
 
 import google.genai as genai
@@ -15,7 +18,6 @@ from google.genai import types
 from dotenv import load_dotenv
 from langfuse import observe
 import time
-from google.api_core.exceptions import ServiceUnavailable
 
 from src.authentication import AuthService
 from src.tools.pantry_checker import PantryChecker
@@ -34,25 +36,19 @@ class AIService:
     """Service for all AI operations using Gemini."""
 
     def __init__(self):
-        """Initialize AI service.
+        """Initialize AI service."""
 
-        Args:
-            api_key: Optional API key for the generative API. If omitted, `GOOGLE_API_KEY` env var is used.
-            model_name: Optional model name. If omitted, `MODEL` env var is used.
-            temperature: Optional temperature (float). If omitted, `TEMPERATURE` env var or 0.7 is used.
-        """
-
+        # env variables
         self.client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
-
         self.model = os.getenv("MODEL")
         self.temperature = float(os.getenv("TEMPERATURE"))
         self.max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS"))
 
+        # load system instruction from file
         base_dir = Path(__file__).resolve().parent
         file_path = base_dir / "system_instruction.txt"
-
         print(f"Searching in: {file_path}")
-        
+
         if not file_path.exists():
             alt_path = base_dir.parent / "system_instruction.txt"
             if alt_path.exists():
@@ -70,19 +66,32 @@ class AIService:
     @observe()
     def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
         """
-        Extract structured receipt data directly using Gemini's multimodal API.
-        Does NOT create a chat — just calls the AI model with the file.
+        Extracts structured data from a given file in bytes format using a specified schema and MIME type.
+        Args:
+            file_bytes (bytes): The byte content of the file to be processed.
+            schema (dict): A dictionary defining the schema for the structured data extraction.
+            mime_type (str): The MIME type of the file (e.g., 'image/jpeg').
+        Returns:
+            dict: A dictionary containing the extracted structured data or an error message.
+                  The structure of the returned dictionary is:
+                  {
+                      "items": [...],  # List of extracted items
+                      "error": str     # Error message if extraction fails
+                  }
+        Raises:
+            json.JSONDecodeError: If the response from the AI cannot be parsed as valid JSON.
+            Exception: For any other errors that occur during the extraction process.
         """
+
         if mime_type == "image/jpg":
             mime_type = "image/jpeg"
         
         try:
-            # Create a very concise prompt to save tokens
             schema_prompt = f"""Extract receipt data as JSON:
                             {json.dumps(schema, indent=2)}
                             Return ONLY valid JSON."""
 
-            # Send file directly to Gemini via multimodal API
+            # sending file directly to Gemini via multimodal API
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=[
@@ -94,21 +103,19 @@ class AIService:
                 ],
                 config=genai.types.GenerateContentConfig(
                     temperature=self.temperature,
-                    max_output_tokens=8000  # Increased to 8000 to ensure enough tokens
+                    max_output_tokens=8000
                 )
             )
 
-            # Check if response exists
             if response is None:
                 return {"items": [], "error": "Gemini returned None response"}
             
-            # Try to extract text from response
             response_text = None
             
-            # First try direct text attribute
+            # direct text attribute
             if hasattr(response, 'text') and response.text:
                 response_text = response.text
-            # If that fails, try candidates array
+            # try candidates array
             elif hasattr(response, 'candidates') and response.candidates:
                 for candidate in response.candidates:
                     if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
@@ -119,26 +126,24 @@ class AIService:
                     if response_text:
                         break
             
+            # just for debug
             if response_text is None:
-                # Get finish_reason from candidates for debugging
                 finish_reason = "unknown"
                 if hasattr(response, 'candidates') and response.candidates:
                     finish_reason = getattr(response.candidates[0], 'finish_reason', 'unknown')
                 return {"items": [], "error": f"Gemini returned no text. Finish reason: {finish_reason}"}
 
-            # Parse JSON response
             response_text = response_text.strip()
             if not response_text:
                 return {"items": [], "error": "Gemini returned empty text (after stripping)"}
             
-            # Remove markdown code block wrapping if present
             if response_text.startswith("```json"):
-                response_text = response_text[7:]  # Remove ```json
+                response_text = response_text[7:] 
             elif response_text.startswith("```"):
-                response_text = response_text[3:]  # Remove ```
+                response_text = response_text[3:] 
             
             if response_text.endswith("```"):
-                response_text = response_text[:-3]  # Remove trailing ```
+                response_text = response_text[:-3]
             
             response_text = response_text.strip()
             
@@ -146,7 +151,6 @@ class AIService:
             return structured_data
         
         except json.JSONDecodeError as e:
-            # Return more diagnostic info about the failed text
             return {"items": [], "error": f"Failed to parse AI output as JSON: {str(e)}. Text preview: {response_text[:100] if response_text else 'EMPTY'}"}
         except Exception as e:
             import traceback
@@ -154,7 +158,21 @@ class AIService:
 
     @observe()
     def web_search(self, query: str) -> dict:
-        """Search the web for recipes using trusted sources."""
+        """
+        Perform a web search using trusted sources to find relevant information based on the provided query.
+        This method constructs a search query that filters results to a predefined list of trusted sources. 
+        It then sends the query to a content generation model and retrieves the results. If any verified sources 
+        are found, it appends their titles and URIs to the response.
+        Args:
+            query (str): The search query string to be used for the web search.
+        Returns:
+            dict: A dictionary containing the generated answer and a list of verified sources found during the search.
+                The structure of the dictionary is:
+                {
+                    "answer": str,  # The generated answer from the model
+                    "sources": list  # List of verified sources found
+                }
+        """
 
         trusted_sources = [
             "tudogostoso.com.br", "feed.continente.pt", "auchaneeu.auchan.pt",
@@ -187,20 +205,56 @@ class AIService:
         return {"answer": response.text + source_text}
 
     @observe()
-    def save_research_note(self, topic: str, summary: str) -> dict:
-        """Save a research note."""
+    def save_research_note(self, topic: str) -> dict:
+        """
+        Save a research note for a given topic.
+
+        Args:
+            topic (str): The topic of the research note to be saved.
+
+        Returns:
+            dict: A dictionary containing the save status and the topic.
+                - "status" (str): The status of the save operation (e.g., "saved").
+                - "topic" (str): The topic that was saved.
+
+        Example:
+            >>> result = save_research_note("Machine Learning")
+            >>> print(result)
+            {'status': 'saved', 'topic': 'Machine Learning'}
+        """
         print(f"[Saved note: {topic}]")
         return {"status": "saved", "topic": topic}
     
     @observe()
     def create_chat(self, auth: AuthService):
+        """
+        Creates a chat session with configured tools and system instructions for the AI assistant.
+        This method initializes a new chat instance with multiple tool integrations for managing
+        recipes, pantry items, user preferences, and shopping lists. It enriches the system
+        instruction with the current date to enable temporal reasoning.
+        Args:
+            auth (AuthService): Authentication service instance used to initialize various
+                               checker and writer tools for database operations.
+        Returns:
+            Chat: A configured chat session object with:
+                - Tools for pantry management, recipe management, user preferences, and cooking assistance
+                - Dynamic system instructions including current date
+                - Configured temperature and token limit settings
+                - An attached PendingMealPlan instance for tracking meal planning state
+        Tools included:
+            - Web search and research note saving
+            - Ingredient availability checking
+            - User identification and preference retrieval
+            - Pantry item management (add/update)
+            - Recipe management (add/retrieve)
+            - Shopping list management (add/remove items)
+            - Cooking assistance and advice
+        """
 
-        # Get the current date and time
         current_date = datetime.now().strftime("%A, %B %d, %Y")
         
-        # Append the date to your system instruction
         dynamic_instruction = (
-            f"Current Date: {current_date}\n\n"
+            f"Current Date: {current_date}\n\n" # add today's date to system instruction so LLM can reason about weekdays
             f"{self.system_instruction}"
         )
 
@@ -221,7 +275,6 @@ class AIService:
             pantrywriter.add_items,
             recipewriter.add_recipes,
             shoppingwriter.add_shopping_items,
-            # add_shopping_items_llm,
             shoppingwriter.remove_item,
             recipechecker.recent_recipe_names,
             cooking_assistant.advise,
@@ -240,6 +293,26 @@ class AIService:
 
     @observe()
     def send_message(self, chat, prompt: str, max_retries: int = 3):
+        """
+        Send a message to the AI chat and retrieve a response with retry logic.
+        Handles meal plan flows if applicable, and implements exponential backoff
+        retry logic for service unavailability errors.
+        Args:
+            chat: The chat object used to send messages and retrieve responses.
+            prompt (str): The user's message or query to send to the AI.
+            max_retries (int, optional): Maximum number of retry attempts for failed requests. Defaults to 3.
+        Returns:
+            str: The AI's response text. Returns status messages for special cases:
+                - Processing message if no text is available but response exists
+                - Error message if an exception occurs (non-503 errors)
+                - Service busy message if max retries are exceeded
+        Raises:
+            None: All exceptions are caught and handled internally, returning error messages instead.
+        Notes:
+            - First checks for pending meal plans and delegates to handle_meal_plan_flow if applicable.
+            - Implements exponential backoff (2^attempt seconds) for 503/ServiceUnavailable errors.
+            - Attempts to extract text from response candidates if direct response.text is unavailable.
+        """
         plan = getattr(chat, "pending_meal_plan", None)
 
         if plan and (plan.awaiting_approval or plan.meals):
@@ -258,8 +331,7 @@ class AIService:
                     candidate = response.candidates[0]
                     if candidate.content and candidate.content.parts:
                         return "".join([p.text for p in candidate.content.parts if getattr(p, "text", None)])
-
-
+                    
                 return "I'm processing that for you, one moment..."
 
             except Exception as e:

@@ -1,4 +1,6 @@
-"""Central DB client for the project.
+"""
+Supabase Client Module
+----------------------
 
 This module exposes a `supabase` symbol for use across `src`.
 
@@ -8,6 +10,7 @@ Behaviour:
 - Otherwise a lightweight placeholder is exported so imports do not fail during
   unit tests or in environments without the dependency. Code that actually
   performs DB operations should handle the placeholder case gracefully.
+
 """
 import os
 from types import SimpleNamespace
@@ -20,7 +23,6 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception:
-    # dotenv is optional in some environments (CI/local)
     pass
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -34,7 +36,6 @@ if create_client and SUPABASE_URL and SUPABASE_KEY:
         supabase = None
 
 if not supabase:
-    # Minimal placeholder so modules can import without the real client.
-    supabase = SimpleNamespace()
+    supabase = SimpleNamespace() # placeholder so modules can import without the real client.
 
 __all__ = ["supabase"]
