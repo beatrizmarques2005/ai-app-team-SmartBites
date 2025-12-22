@@ -41,7 +41,11 @@ def profile_page():
         return 
 
 
-    st.subheader(f"Hello, {user.get('full_name', 'User')}!")
+    # Extract first name from full name
+    full_name = user.get('full_name', 'User')
+    first_name = full_name.split()[0] if full_name and full_name.strip() else 'User'
+    
+    st.subheader(f"Hello, {first_name}!")
 
     st.markdown(f"**Full Name:** {user.get('full_name', '')}")
     st.markdown(f"**Birth Date:** {user.get('birth_date', '')}")
@@ -65,32 +69,48 @@ def profile_page():
         with st.form(key='edit_profile_form'):
             full_name = st.text_input("Full Name", value=user.get('full_name', ''))
             birth_date = st.date_input("Birth Date", value=user.get('birth_date', None))
-            gender = st.selectbox("Gender", ["", "Male", "Female", "Other"], index=["", "Male", "Female", "Other"].index(user.get('gender', '') or ""))
+            
+            gender_options = ["Prefer not to say", "Male", "Female", "Other"]
+            current_gender = user.get('gender', 'Prefer not to say')
+            gender_index = gender_options.index(current_gender) if current_gender in gender_options else 0
+            gender = st.selectbox("Gender", gender_options, index=gender_index)
+            
             household_number = st.number_input("Default Household Number", value=int(user.get('household_number', 1)) if user.get('household_number') else 1, min_value=1)
             
+            # Base options
             diet_options = ["None", "Vegetarian", "Vegan", "Pescatarian", "Keto", "Gluten-Free", "Dairy-Free"]
             cuisine_options = ["None", "Italian", "Mexican", "Indian", "Chinese", "Mediterranean",
                         "American", "Portuguese"]
             restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
+            # Merge user's saved values with predefined options
+            user_restrictions = user.get('restrictions') or []
+            user_diet_type = user.get('diet_type') or []
+            user_cuisine_type = user.get('cuisine_type') or []
+            
+            # Add user's custom values to options if not already present
+            all_restrictions = restrictions_options + [r for r in user_restrictions if r not in restrictions_options]
+            all_diet_options = diet_options + [d for d in user_diet_type if d not in diet_options]
+            all_cuisine_options = cuisine_options + [c for c in user_cuisine_type if c not in cuisine_options]
+
             restrictions = st.multiselect(
                 "Dietary Restrictions (allergies, intolerances, dislikes)",
-                restrictions_options,
-                default=(user.get('restrictions') or []),
+                all_restrictions,
+                default=user_restrictions,
                 accept_new_options=True,
             )
 
             diet_type = st.multiselect(
                 "Diet Type",
-                diet_options,
-                default=(user.get('diet_type') or []),
+                all_diet_options,
+                default=user_diet_type,
                 accept_new_options=True,
             )
 
             cuisine_type = st.multiselect(
                 "Preferred cuisines",
-                cuisine_options,
-                default=(user.get('cuisine_type') or []),
+                all_cuisine_options,
+                default=user_cuisine_type,
                 accept_new_options=True,
             )
             

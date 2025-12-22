@@ -24,6 +24,7 @@ def signup_page():
         'diet_type': [],
         'cuisine_type': []        
         }
+    
     for key, default in user_data.items():
         if key not in st.session_state:
             st.session_state[key] = default
@@ -97,9 +98,9 @@ def signup_page():
         restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
         with st.form("step_3"):
-            st.session_state.dietary = st.multiselect("Dietary preferences", diet_options, accept_new_options = True)
-            st.session_state.restrictions = st.multiselect("Restrictions (allergies, intolerances, dislikes)", restrictions_options, accept_new_options =True)
-            st.session_state.cuisines = st.multiselect("Preferred cuisines", cuisine_options, accept_new_options = True)
+            st.session_state.dietary = st.multiselect("Dietary preferences - choose one or more options, or add your own", diet_options, accept_new_options = True)
+            st.session_state.restrictions = st.multiselect("Restrictions (allergies, intolerances, dislikes) - choose one or more options, or add your own", restrictions_options, accept_new_options = True)
+            st.session_state.cuisines = st.multiselect("Preferred cuisines - choose one or more options, or add your own", cuisine_options, accept_new_options = True)
         
             create_clicked = st.form_submit_button("Create Account")
 
@@ -122,28 +123,34 @@ def signup_page():
                      # --- SUCCESS ---
                     st.success("🎉 Account created successfully!")
 
-                    # reset state
-                    st.session_state['logged_in'] = True
-                    # st.session_state['user_id'] = st.session_state.user_id
-                    st.rerun()
+                    # Log the user in after successful signup
+                    try:
+                        login_resp = svc.login(st.session_state.email, st.session_state.password)
+                        st.session_state.auth = svc  # Store the auth service in session state
+                        st.session_state['logged_in'] = True
+                        st.rerun()
+                    except Exception as login_error:
+                        st.error(f"Account created but login failed: {login_error}")
+                        st.error("Please go back to login page and sign in.")
+                        return
                 except Exception as e:
                     st.error(f"Database insert failed: {e}")
                     return
 
                
 
-        # Navigation buttons
-        col1, col2, col3 = st.columns([1, 6, 1])
-        with col1:
-            if st.button("Back", type="tertiary") and step > 0:
-                st.session_state.signup_step = step - 1
-                st.rerun()
+    # Navigation buttons
+    col1, col2, col3 = st.columns([1, 6, 1])
+    with col1:
+        if st.button("Back", type="tertiary") and step > 0:
+            st.session_state.signup_step = step - 1
+            st.rerun()
 
-        with col3:
-            if st.button("Cancel / Clear", type="tertiary"):
-                st.session_state.signup_step = 0
-                st.session_state.signup_data = {}
-                st.rerun()
+    with col3:
+        if st.button("Cancel / Clear", type="tertiary"):
+            st.session_state.signup_step = 0
+            st.session_state.signup_data = {}
+            st.rerun()
 
 
     st.markdown("---")
