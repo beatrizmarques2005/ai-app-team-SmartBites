@@ -11,7 +11,7 @@ if project_root not in sys.path:
 
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
-from src.workflow.receipt_parser import ReceiptParser
+from src.workflows.receipt_parser import ReceiptParser
 
 if "auth" not in st.session_state:
     st.session_state.auth = AuthService()
@@ -45,7 +45,7 @@ def receipts_page():
         st.session_state.ai = AIService()
 
     st.subheader("Analyze and store a receipt")
-    uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"])
+    uploaded = st.file_uploader("Upload a receipt (PDF or image)", type=["pdf", "png", "jpg", "jpeg"], )
     receipt_parser = ReceiptParser()
 
     if uploaded is not None:
@@ -62,20 +62,18 @@ def receipts_page():
 
             # USING AN EXPANDER: This prevents Tab 2 from becoming so long 
             # that it pushes the Chat Input in Tab 1 down.
-            with st.expander("📄 View Parsed Receipt Details", expanded=True):
                 # st.write({
                 #     "store_name": analysis.get("store_name"),
                 #     "purchase_date": analysis.get("purchase_date"),
                 #     "total": analysis.get("total"),
                 # })
                 
-                if items := analysis.get("items"):
-                    st.markdown("**Items Found:**")
-                    for i, item in enumerate(items, 1):
-                        st.write(
-                            f"{i}. {item.get('name')} — qty: {item.get('quantity')} "
-                            f"unit_price: {item.get('unit_price')} total: {item.get('total_price')}"
-                        )
+            if items := analysis.get("items"):
+                st.markdown("**Items Found:**")
+                for i, item in enumerate(items, 1):
+                    st.write(
+                        f"{i}. {item.get('name')} — quantity: {item.get('quantity')} "
+                    )
 
             if st.button("Save to pantry", key="save_receipt"):
                 user_id = st.session_state.get("user_id")

@@ -16,6 +16,7 @@ def shopping_list_page():
     st.title("My Shopping List")
     st.write("See your shopping list here and select an item to remove them from the list!")
     st.markdown("")
+    st.markdown("")
 
     user_id = st.session_state.get('user_id', None)
 
@@ -26,6 +27,12 @@ def shopping_list_page():
         .execute()
 
     shopping_items = shopping_response.data
+
+    search_query = st.text_input("Search ingredients...")
+    if search_query:
+        pantry_items = [item for item in pantry_items if search_query.lower() in item['ingredient_name'].lower()]
+
+    st.markdown("")
 
     if not shopping_items:
         st.info("Your shopping list is empty.")

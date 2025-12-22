@@ -65,6 +65,7 @@ class UserChecker:
             gender = r.get("gender")
             birth_date = r.get("birth_date")
             age = date.today().year - int(birth_date.split("-")[0]) if birth_date else None
+            nationality = r.get("nationality")
 
             if name is None:
             # fallback: stringify the row if no identifiable name
@@ -74,7 +75,7 @@ class UserChecker:
                     name = str(r)
 
             if name is not None and gender is None and age is None:
-                parts.append(f"Name: {name}, Gender: {gender}, Age: {age}")
+                parts.append(f"Name: {name}, Gender: {gender}, Age: {age}, Nationality: {nationality}")
 
         return " | ".join(parts)
 

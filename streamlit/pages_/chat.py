@@ -11,7 +11,7 @@ if project_root not in sys.path:
 
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
-from src.workflow.receipt_parser import ReceiptParser
+from src.workflows.receipt_parser import ReceiptParser
 
 if "auth" not in st.session_state:
     st.session_state.auth = AuthService()

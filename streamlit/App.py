@@ -62,24 +62,9 @@ if not st.session_state['logged_in']:
     st.stop()
 
 
-
-# if st.sidebar.button('Profile', type = 'tertiary'):
-#     st.session_state['current_page'] = 'profile'
-# if st.sidebar.button('Chat', type = 'tertiary'):
-#     st.session_state['current_page'] = 'chat'
-# if st.sidebar.button('Planner', type = 'tertiary'):
-#     st.session_state['current_page'] = 'planner'
-# if st.sidebar.button('Pantry', type = 'tertiary'):
-#     st.session_state['current_page'] = 'pantry'
-# if st.sidebar.button('Recipes', type = 'tertiary'):
-#     st.session_state['current_page'] = 'recipes'
-
-
-
-
 with st.sidebar:
-    st.image("smartbites_logo-removebg-preview.png", use_container_width=True)
-    st.markdown("<h1 style='text-align: center; margin-bottom: 0rem;'>SmartBites</h1>", unsafe_allow_html=True)
+    st.image("images\SmartBites_logo.png", use_container_width=True)
+    st.markdown("<h1 style='text-align: center; margin-bottom: 0rem;'><em><strong>SmartBites</strong></em></h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; margin-bottom: 0.05rem; font-weight: 400;'>Your ingredients.<br>Your meals.<br>Your way.</h2>", unsafe_allow_html=True)
     st.markdown("<hr style='margin: 0.25rem 0; border: 1px solid #e0e0e0;' />", unsafe_allow_html=True)
     selected = option_menu(
@@ -87,7 +72,7 @@ with st.sidebar:
         # menu_icon= None, 
         options=[ "Chat", "Receipt Analyzer", "Planner", "Pantry",  "Shopping List", "Profile", "About Us"],
         icons = ["robot", "receipt", "calendar-week", "basket", "list-check", "person", "info-circle"],
-        default_index=1,
+        default_index=0,
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#555", "font-size": "20px"}, 

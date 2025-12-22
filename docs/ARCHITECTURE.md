@@ -212,7 +212,8 @@ authenticated user data retrieved through tools.
     "household_number": "integer",
     "restrictions": ["string"], 
     "diet_type": ["string"],
-    "cuisine_type": ["string"]
+    "cuisine_type": ["string"], 
+    "nationality": "string"
   },
 
   "pantry_items": {

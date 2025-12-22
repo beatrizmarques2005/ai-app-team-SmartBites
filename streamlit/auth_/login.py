@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT))
 from src.authentication import AuthService
 
 def login_page():
-    st.title('Login to your Smart Bites Page!')
+    st.title('Login to your *SmartBites* Account!')
 
     # inputs
     st.session_state.email = st.text_input('Email', value =  st.session_state.email, placeholder = 'you@example.com')
