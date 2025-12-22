@@ -67,7 +67,7 @@ This section presents the **design of our system architecture** along with the m
 - Python 3.13.5
 - API keys for *AIService*
 
-### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**INSTALATION STEPS**</font></span>
+### <font size=3><span style="background-color:#acc95b; padding:4px 8px; border-radius:4px;">**INSTALLATION STEPS**</font></span>
 
 #### <font size=3>**ENVIRONMENT SETUP**</font>
 
@@ -132,7 +132,8 @@ streamlit run streamlit\App.py
 │   └── Technical_Report_Guidelines.pdf
 |
 ├── images/                         # Logo and diagrams.
-│   ├── SmartBites_Logo.png
+│   ├── SmartBites_logo.png
+│   ├── SmartBites_logo2.png
 │   └── System_Architecture.png
 |
 ├── src/

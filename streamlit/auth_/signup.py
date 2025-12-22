@@ -10,14 +10,14 @@ Purpose:
 UI Flow:
 - Step 0: Email and password form; calls `AuthService.signup()`, extracts `user.id`, advances to step 1.
 - Step 1: Personal information (name, birth date, gender, household, nationality); advances to step 2.
-- Step 2: Preferences (diet type, ingredient restrictions, preferred cuisines); inserts consolidated profile to `users` table,
+- Step 2: Preferences (diet type, ingredient restrictions, preferred cuisine_type); inserts consolidated profile to `users` table,
     logs in via `AuthService.login()`, sets `auth` and `logged_in`, and triggers `st.rerun()`.
 - Progress bar displays current step (0..2) out of 3.
 - Back button navigates to previous step; Cancel/Clear resets wizard state.
 
 Session State Keys:
 - Input fields: `email`, `password`, `full_name`, `birth_date`, `gender`, `household_number`,
-    `nationality`, `dietary`, `restrictions`, `cuisines`.
+    `nationality`, `diet_type`, `restrictions`, `cuisine_type`.
 - Flow control: `signup_step` (0, 1, or 2 internally; displayed as Steps 1-3 to user).
 - Auth: `auth` (AuthService instance), `logged_in` (boolean flag for authenticated state).
 - Routing: `show_signup` (flag used by app router to toggle between signup and login views).
@@ -35,8 +35,10 @@ from pathlib import Path
 import sys
 import datetime
 from datetime import date
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
 from src.authentication import AuthService
 from src.db.client import supabase
 
@@ -60,7 +62,7 @@ def signup_page():
         'household_number': '',
         'restrictions': [],
         'diet_type': [],
-        'cuisine_type': []        
+        'cuisine_type': [],  
         }
     
     for key, default in user_data.items():
@@ -122,10 +124,10 @@ def signup_page():
         restrictions_options = ["None", "Nut Allergy", "Dairy Allergy", "Gluten Allergy", "Shellfish Allergy", "Lactose Intolerance"]
 
         with st.form("step_3"):
-            st.session_state.dietary = st.multiselect(
+            st.session_state.diet_type = st.multiselect(
                 "Dietary preferences - choose one or more options, or add your own", 
                 diet_options, 
-                default=st.session_state.dietary if st.session_state.dietary else [],
+                default=st.session_state.diet_type if st.session_state.diet_type else [],
                 accept_new_options=True
             )
             st.session_state.restrictions = st.multiselect(
@@ -134,10 +136,10 @@ def signup_page():
                 default=st.session_state.restrictions if st.session_state.restrictions else [],
                 accept_new_options=True
             )
-            st.session_state.cuisines = st.multiselect(
-                "Preferred cuisines - choose one or more options, or add your own", 
+            st.session_state.cuisine_type = st.multiselect(
+                "Preferred cuisine_type - choose one or more options, or add your own", 
                 cuisine_options,
-                default=st.session_state.cuisines if st.session_state.cuisines else [],
+                default=st.session_state.cuisine_type if st.session_state.cuisine_type else [],
                 accept_new_options=True
             )
         
@@ -166,9 +168,9 @@ def signup_page():
                     user_data['gender'] = st.session_state.gender
                     user_data['household_number'] = st.session_state.household_number
                     user_data['nationality'] = st.session_state.nationality.lower()
-                    user_data['diet_type'] = st.session_state.dietary
+                    user_data['diet_type'] = st.session_state.diet_type
                     user_data['restrictions'] = st.session_state.restrictions
-                    user_data['cuisine_type'] = st.session_state.cuisines
+                    user_data['cuisine_type'] = st.session_state.cuisine_type
                     
                     supabase.table("users").insert(user_data).execute()
 

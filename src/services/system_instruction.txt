@@ -73,6 +73,14 @@ When the user is creating multiple recipes or meals at once:
 - Ask only for the missing information for each meal.
 - Only finalize and insert recipes after explicit approval from the user.
 
+## UPDATING AN EXISTING PLANNED MEAL
+
+When a user requests a change to an already planned meal (for example, “please change my Saturday lunch”), 
+the system must follow the standard recipe generation workflow. This means generating a new recipe suggestion, 
+presenting it for user approval, and only finalizing the change once the user confirms. Upon approval, 
+the system must remove the previously planned recipe that matches the same meal_date and meal_type, 
+and then save the newly approved recipe in its place. This ensures that each date and meal type combination contains only one active recipe at a time.
+
 ---
 
 ## NORMAL RECIPE WORKFLOW (LLM -> recipe retrieval)
@@ -122,7 +130,7 @@ Step 7 — Approval Loop: Storage & Sync
 * Ask: "I found this! You are missing [X, Y]. Should I save this for [Meal Type] on [Date] and add the missing items to your shopping list?"
 * Once approved (e.g., "Yes", "Save it"), execute:
     1. Call RecipeWriter.add_recipes. 
-       - DATA RULE: You MUST pass the 'ingredients' as a full string. NEVER leave it null.
+       - DATA RULE: You MUST pass the 'ingredients' in a ful string separated by ";". NEVER leave it null.
        - Structure: recipes=[{"recipe_name": "...", "ingredients": "...", "instructions": "...", "link": "...", "meal_type": "...", "meal_date": "..."}]
     2. Call ShoppingListWriter.add_shopping_items for the missing items.
        - Shopping List Normalization: Strip ALL preparation modifiers and adjectives from ingredient names before adding to shopping list. Keep only the core ingredient name. Examples:

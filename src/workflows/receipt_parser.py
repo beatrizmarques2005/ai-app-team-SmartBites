@@ -442,9 +442,6 @@ class ReceiptParser:
             if not name:
                 continue
             
-            if not self.ai.is_edible(name):
-                continue
-
             quantity = item.get("quantity") or 1
             unit = item.get("unit") or None
             normalized = self._normalize_name(name)

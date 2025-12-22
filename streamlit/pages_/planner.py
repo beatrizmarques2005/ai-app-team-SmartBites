@@ -324,8 +324,10 @@ def weekly_planner_page():
             st.markdown(f"**Ingredients:**")
             ingredients = recipe.get('ingredients')
             if ingredients:
+                print(ingredients)
                 if isinstance(ingredients, str):
-                    ingredient_lines = ingredients.split(',')
+                    ingredient_lines = ingredients.split(';')
+                    print(ingredient_lines)
                     for ingredient in ingredient_lines:
                         ingredient = ingredient.strip()
                         if ingredient:

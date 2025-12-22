@@ -10,6 +10,7 @@ helpers into a single service to avoid scattering AI logic across multiple files
 """
 import json
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -63,6 +64,39 @@ class AIService:
             print(f"DEBUG: Content starts with: {raw_data[:20]}")
             self.system_instruction = raw_data
     
+    def _attempt_json_repair(self, json_text: str) -> str:
+        """
+        Attempt to repair incomplete JSON by adding missing closing braces.
+        
+        Args:
+            json_text: Potentially incomplete JSON string
+            
+        Returns:
+            Repaired JSON string
+        """
+        # Count opening and closing braces
+        open_braces = json_text.count('{')
+        close_braces = json_text.count('}')
+        open_brackets = json_text.count('[')
+        close_brackets = json_text.count(']')
+        
+        # If there are unclosed structures, try to close them
+        repaired = json_text
+        
+        # Remove any trailing incomplete string (ends with unclosed quote)
+        if repaired.rstrip().endswith(','):
+            repaired = repaired.rstrip()[:-1]
+        
+        # Add missing closing brackets for arrays
+        if open_brackets > close_brackets:
+            repaired += ']' * (open_brackets - close_brackets)
+        
+        # Add missing closing braces for objects
+        if open_braces > close_braces:
+            repaired += '}' * (open_braces - close_braces)
+        
+        return repaired
+    
     @observe()
     def extract_structured(self, file_bytes: bytes, schema: dict, mime_type: str) -> dict:
         """
@@ -94,18 +128,22 @@ class AIService:
                             Extract receipt data following EXACTLY this schema:
                             {json.dumps(schema, indent=2)}
 
-                            Rules (MANDATORY):
-                            - Output MUST be valid JSON
+                            CRITICAL RULES (MANDATORY):
+                            - Output MUST be valid, COMPLETE JSON
+                            - MUST end with proper closing braces
                             - Use double quotes for all keys and strings
+                            - Escape special characters in strings (quotes, backslashes, newlines)
                             - Do NOT include trailing commas
                             - Do NOT include comments
                             - Do NOT include explanations or extra text
-                            - Use null instead of None
-                            - Missing values must be null
+                            - Use null for missing values (not None)
                             - Output JSON only, no markdown, no backticks
+                            - Keep string values concise to avoid token limits
+                            - VERIFY the JSON is complete before finishing
                             """
 
             # sending file directly to Gemini via multimodal API
+            # Use higher token limit to prevent truncation of large receipts
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=[
@@ -117,7 +155,7 @@ class AIService:
                 ],
                 config=genai.types.GenerateContentConfig(
                     temperature=self.temperature,
-                    max_output_tokens=8000
+                    max_output_tokens=16384  # Increased to prevent truncation
                 )
             )
 
@@ -161,13 +199,43 @@ class AIService:
             
             response_text = response_text.strip()
             
-            structured_data = json.loads(response_text)
-            return structured_data
+            if not response_text.endswith('}'):
+                logging.warning(f"Response may be incomplete. Length: {len(response_text)}")
+                logging.warning(f"Last 100 chars: {response_text[-100:]}")
+            
+            try:
+                structured_data = json.loads(response_text)
+                return structured_data
+            except json.JSONDecodeError as first_error:
+                logging.warning(f"Initial JSON parse failed: {str(first_error)}")
+                logging.warning("Attempting to repair JSON...")
+                
+                try:
+                    repaired_text = self._attempt_json_repair(response_text)
+                    structured_data = json.loads(repaired_text)
+                    logging.info("Successfully repaired and parsed JSON")
+                    return structured_data
+                except json.JSONDecodeError:
+                    raise first_error
         
         except json.JSONDecodeError as e:
-            return {"items": [], "error": f"Failed to parse AI output as JSON: {str(e)}. Text preview: {response_text[:100] if response_text else 'EMPTY'}"}
+            error_context = f"Character position: {e.pos if hasattr(e, 'pos') else 'unknown'}"
+            preview_start = max(0, (e.pos if hasattr(e, 'pos') else 500) - 200)
+            preview_end = min(len(response_text) if response_text else 0, preview_start + 400)
+            text_preview = response_text[preview_start:preview_end] if response_text else 'EMPTY'
+            
+            logging.error(f"JSON Parse Error: {str(e)}")
+            logging.error(f"Full response length: {len(response_text) if response_text else 0}")
+            logging.error(f"Context around error: {text_preview}")
+            
+            return {
+                "items": [], 
+                "error": f"Failed to parse AI output as JSON: {str(e)}. {error_context}. Response length: {len(response_text) if response_text else 0}. Context: ...{text_preview}..."
+            }
         except Exception as e:
             import traceback
+            logging.error(f"Unexpected error in extract_structured: {str(e)}")
+            logging.error(traceback.format_exc())
             return {"items": [], "error": f"Error: {str(e)}\n{traceback.format_exc()}"}
 
     @observe()
@@ -346,7 +414,7 @@ class AIService:
                     if candidate.content and candidate.content.parts:
                         return "".join([p.text for p in candidate.content.parts if getattr(p, "text", None)])
                     
-                return "I'm processing that for you, one moment..."
+                return "System Failed. Please upload your prompt again. We are sorry for the inconvenience"
 
             except Exception as e:
                 if "503" in str(e) or "ServiceUnavailable" in str(e):
@@ -359,45 +427,3 @@ class AIService:
 
         return "🚦 SmartBites is currently busy. Please try again in a minute."
 
-    @observe()
-    def _get_response_text(self, response) -> str:
-        if not response:
-            return ""
-
-        text = getattr(response, "text", None)
-        if isinstance(text, str):
-            return text
-
-        try:
-            return response.candidates[0].content.parts[0].text or ""
-        except Exception:
-            return ""
-
-    @observe()
-    def is_edible(self, ingredient_name: str) -> bool:
-        """
-        Determines if a given ingredient is edible using the AI model.
-        Args:
-            ingredient_name (str): The name of the ingredient to check.
-        Returns:
-            bool: True if the ingredient is edible, False otherwise.
-        """
-        try:
-            prompt = f"Is '{ingredient_name}' an edible ingredient? Answer with 'Yes' or 'No'."
-
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=0.0,
-                    max_output_tokens=10
-                )
-            )
-
-            answer = self._get_response_text(response)
-            if not answer:
-                return True
-            
-            return answer.strip().lower().startswith("yes")
-        except Exception:
-            return True
