@@ -78,7 +78,7 @@ if not st.session_state['logged_in']:
 
 # Sidebar configuration
 with st.sidebar:
-    st.image("images\\SmartBites_logo.png", use_container_width=True)
+    st.image("../images/SmartBites_logo.png", use_container_width=True)
     st.markdown("<h1 style='text-align: center; margin-bottom: 0rem;'><em><strong>SmartBites</strong></em></h1>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align: center; margin-bottom: 0.05rem; font-weight: 400;'>Your ingredients.<br>Your meals.<br>Your way.</h2>", unsafe_allow_html=True)
     st.markdown("<hr style='margin: 0.25rem 0; border: 1px solid #e0e0e0;' />", unsafe_allow_html=True)
