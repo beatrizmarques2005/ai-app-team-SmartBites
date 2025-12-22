@@ -37,7 +37,7 @@ from src.authentication import AuthService
 @observe
 def pantry_page():
     st.set_page_config(
-        page_title="Pantry",
+        page_title="SmartBites | Pantry",
         page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/basket.svg",
         layout="wide",
         initial_sidebar_state='collapsed'

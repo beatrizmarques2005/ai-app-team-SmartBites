@@ -25,11 +25,12 @@ Entry Point:
 import streamlit as st
 from langfuse import observe
 from dotenv import load_dotenv
-import os
 import sys
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-if project_root not in sys.path:
-    sys.path.append(project_root)
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
 

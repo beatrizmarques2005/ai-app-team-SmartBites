@@ -35,8 +35,10 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
 from src.authentication import AuthService
 from auth_.login import login_page
 from auth_.signup import signup_page
@@ -112,16 +114,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     
-    # Spacer to push logout button to bottom
-    st.markdown("<div style='padding: 15rem 0;'></div>", unsafe_allow_html=True)
 
     if st.button("Logout", type="primary", use_container_width=True):
         auth.logout()
         st.session_state.clear()
         st.rerun()
         
-    st.markdown("<p style='text-align: center; font-size: 0.9rem; margin-top: 0.5rem;'>version 1.0</p>", unsafe_allow_html=True)
-
 # Page routing 
 page_routes = {
     "Chat": chat_page,

@@ -26,8 +26,10 @@ import streamlit as st
 from langfuse import observe
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
 from src.db.client import supabase
 from src.authentication import AuthService
 

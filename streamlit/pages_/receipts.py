@@ -30,8 +30,10 @@ from langfuse import observe
 from pathlib import Path
 from dotenv import load_dotenv
 import sys
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
 from src.services.ai_service import AIService 
 from src.authentication import AuthService
 from src.workflows.receipt_parser import ReceiptParser
@@ -44,7 +46,7 @@ load_dotenv()
 @observe
 def receipts_page():
     st.set_page_config(
-        page_title="Receipts Analyzer",
+        page_title="SmartBites | Receipts Analyzer",
         page_icon="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/receipt.svg",
         layout="centered"
     )

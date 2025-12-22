@@ -27,8 +27,10 @@ import streamlit as st
 from langfuse import observe
 import sys
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
+
 from src.db.client import supabase
 from src.authentication import AuthService
 from src.tools.user_writer import UserWriter
@@ -39,7 +41,7 @@ if "auth" not in st.session_state:
 @observe
 def profile_page():
     st.set_page_config(
-        page_title='User Profile',
+        page_title='SmartBites | User Profile',
         page_icon='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/person-circle.svg',
         initial_sidebar_state='collapsed',
         layout='wide'
