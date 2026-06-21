@@ -1,4 +1,5 @@
 # SmartBites
+### Capstone Project Class · Data Science Degree · NOVA IMS
 
 ***When motivation is low but hunger is high.***
 
